@@ -35,16 +35,24 @@ https://github.com/user-attachments/assets/2adfd956-d6e8-4b5c-893d-dc04f92abe66
 
 ## Installation
 
+Walkthrough — download the `.zip` and load it into Chrome:
+
+https://github.com/user-attachments/assets/695d7270-c2fb-4a84-b8eb-b198f2b8ed8e
+
 Requires Chrome 120+.
 
-### Option A: download a pre-built build
+### Option A: download the pre-built extension
 
 [![Download TabAgent](https://img.shields.io/badge/Download-TabAgent-4285F4?logo=googlechrome&logoColor=white)](../../releases/latest)
 
-1. Click the button above (or go to **[Releases](../../releases/latest)**) and download `TabAgent-vX.X.X.zip`, then unzip it.
-2. Open `chrome://extensions`, enable **Developer mode** (top right), click **Load unpacked**, and select the unzipped folder.
+1. Click the button above (or go to **[Releases](../../releases/latest)**) and download **`TabAgent-v0.1.0.zip`** (the latest release asset).
+2. **Unzip** it. You'll get a folder with `manifest.json` at its root — keep track of where it is.
+3. Open **`chrome://extensions`** in Chrome.
+4. Turn on **Developer mode** (toggle in the top-right corner).
+5. Click **Load unpacked** and select the unzipped folder from step 2.
+6. Open the side panel with **Cmd/Ctrl+Shift+A** (or click the TabAgent toolbar icon).
 
-> The release zip is permanently hosted and always points to the latest version.
+> The release `.zip` is permanently hosted and always points to the latest version.
 
 ### Option B: build from source
 
@@ -55,9 +63,14 @@ npm install
 npm run build   # esbuild → dist/
 ```
 
-Then load `dist/` via **Load unpacked** as above.
+Then load the generated **`dist/`** folder via **Load unpacked** (steps 3–5 above).
 
-Shortcuts: **Cmd/Ctrl+Shift+A** opens the side panel; **Cmd/Ctrl+Shift+Y** opens the popup (a one-button side-panel launcher).
+### After install
+
+- **Cmd/Ctrl+Shift+A** — open the side panel
+- **Cmd/Ctrl+Shift+Y** — open the popup (a one-button side-panel launcher)
+
+Next, connect a provider and API key — see [Quick start](#quick-start).
 
 > Chrome will warn about the `debugger` permission at install — see [The debugger permission](#the-debugger-permission) for why it's required.
 
@@ -179,10 +192,6 @@ Key files:
 - `src/providers/catalog.ts` — built-in provider and model definitions
 - `src/tools/browser-tools.ts` — the 11 CDP browser tools
 - `src/core/storage.ts` — encrypted credential store, settings, session persistence
-
-## Credits
-
-Architecture adapted from [charmbracelet/crush](https://github.com/charmbracelet/crush) — particularly the OpenAI-compat adapter pattern, the canonical message/stream-part types, and the Z.AI catalog entry. The browser-tool design follows the Playwright-MCP accessibility-snapshot + `ref` pattern.
 
 ## License
 
