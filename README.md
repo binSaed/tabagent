@@ -1,165 +1,184 @@
 # TabAgent
 
-> Turn the active browser tab into an AI-driven agent.
+> Turn any browser tab into an AI agent.
 
-A Manifest V3 Chrome extension that turns the active tab into an AI-driven agent. Connect any OpenAI-compatible provider — **Z.AI coding plan is the default and first-class** — and let the model control the page through structured browser tools (snapshot, click, type, navigate, screenshot, extractText).
+![Chrome 120+](https://img.shields.io/badge/Chrome-120%2B-4285F4?logo=googlechrome&logoColor=white)
+![Manifest V3](https://img.shields.io/badge/Manifest-V3-34A853)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?logo=typescript&logoColor=white)
+![Zero runtime dependencies](https://img.shields.io/badge/runtime%20deps-0-brightgreen)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow)
 
-This is a working vertical slice implementing the agent-loop-and-survival layer. It is not the full platform yet (see "What's stubbed" below).
-
-## Download
-
-Grab a ready-to-load build from GitHub — no need to build from source.
-
-1. Go to the **[Actions](../../actions)** tab → **Build Extension** workflow.
-2. Open the latest successful run (top of the list).
-3. Scroll down to **Artifacts** and download **TabAgent** (a `TabAgent.zip`).
-4. Unzip it. Then in Chrome:
-   1. Open `chrome://extensions`
-   2. Enable **Developer mode** (top-right)
-   3. **Load unpacked** → select the unzipped folder
-
-Requires Chrome 120+. Prefer building from source? See [Load the extension](#load-the-extension) below.
-
-> Note: workflow artifacts expire after 90 days. If the latest run is too old, open it and click **Re-run workflow**, or build from source.
+TabAgent is a Manifest V3 Chrome extension that lets any OpenAI-compatible LLM drive the active tab through the Chrome DevTools Protocol. Connect a provider — **Z.AI's coding plan is the first-class default** — give the agent a goal in the side panel, and it works the page through 11 structured browser tools. Everything is hand-rolled with zero runtime dependencies: SSE streaming, markdown rendering, and WebCrypto encryption included.
 
 ## Demo
 
 https://github.com/user-attachments/assets/2adfd956-d6e8-4b5c-893d-dc04f92abe66
 
-## Z.AI coding plan setup (recommended path)
+## Features
 
-Z.AI's coding plan is OpenAI-compatible (confirmed via [crush](https://github.com/charmbracelet/crush)'s `catwalk` catalog). No OAuth, no special flow.
+- **Any OpenAI-compatible provider** — Z.AI, Zhipu/BigModel, OpenAI, OpenRouter, or any custom endpoint (Ollama, LM Studio, Groq, DeepSeek, …) through a single adapter
+- **11 CDP browser tools** — snapshot, click, type, scroll, hover, key presses, screenshots, text extraction, and more (see [Browser tools](#browser-tools))
+- **Resumable agent loop** — a checkpointed state machine (up to 200 steps) that survives service-worker death and crashes mid-run
+- **Plan approval** — the agent can propose a step-by-step plan; you approve or reject it, then watch steps tick off live in the panel
+- **Permission system** — per-site grants (site-wide or per-tool), plus **ask**/**auto** autonomy modes
+- **Mid-run steering** — queue follow-up messages while the agent is working; they're folded into the run
+- **Cross-session memory** — `remember`/`forget` tools, automatic fact extraction after each turn, a memory manager in the panel, and "forget everything" intent detection (English and Arabic)
+- **Skills** — keyword-activated expert procedures; ships with full-page translation via in-place text replacement with automatic LTR/RTL handling
+- **Selection menu** — select text on any page for a floating **Explain / Summarize / Translate / Rewrite / Ask** menu that hands off to the agent
+- **Unattended-run hygiene** — JS dialogs (`alert`/`confirm`/`prompt`) are auto-dismissed; `beforeunload` blocks are detected and reported instead of hanging
+- **Notifications** — chime + system toast when a run finishes or needs your attention (toggleable)
+- **Polished chat UI** — streaming markdown, collapsible reasoning blocks, screenshot lightbox, suggested next-action chips, light/dark theme, JSON conversation export
 
-1. Get a Z.AI API key from your coding-plan dashboard.
-2. Load the extension (see below), open the side panel (`Cmd+Shift+A` or click the toolbar icon).
-3. Pick **Z.AI (Coding Plan)** in the provider dropdown, paste your key, click **Connect**.
-4. Pick a model. Defaults:
-   - **`glm-5.2`** — 1M context, reasoning (levels high/xhigh). Default large model.
-   - `glm-4.6v` / `glm-4.5v` — vision-capable (needed for the screenshot/vision fallback).
-   - See `src/providers/catalog.ts` for the full GLM roster (5.1, 5-turbo, 5, 4.7, 4.7-flash, 4.6, 4.5, 4.5-air).
-5. Navigate to any page, type a goal ("click every unchecked checkbox", "summarize this page", "fill the search form and submit"), and hit Send.
-
-No passphrase, no setup wizard. Your key is encrypted at rest on first connect (see "Security" below).
-
-### Z.AI-specific quirks handled automatically
-
-These are replicated from crush's `coordinator.go`; without them Z.AI tool-calling and reasoning break:
-
-- `tool_stream: true` injected into the chat request body
-- `thinking: { type: "enabled" | "disabled" }` injected for reasoning models (GLM-5.x)
-- `/models` health check tolerates `401` (Z.AI's models endpoint uses different scopes than chat)
-- Subscription (`flatRate: true`) — per-token cost tracking is hidden; the coding plan is flat-rate
-
-## Other providers (all via the same OpenAI-compat adapter)
-
-- **Zhipu / BigModel** — `open.bigmodel.cn/api/paas/v4`, same GLM roster, separate key
-- **OpenAI**, **OpenRouter** — pre-seeded
-- **Custom (OpenAI-compatible)** — enter any baseURL + key; works for **Ollama**, **LM Studio**, **Groq**, **Together**, **DeepSeek**, **xAI**, **Fireworks**, **Cerebras**, **Moonshot**, and any other OpenAI-compatible endpoint. Dynamic `GET /v1/models` discovery fills the model list.
-
-## Load the extension
-
-```
-npm install
-npm run build        # outputs dist/
-```
-
-Then in Chrome:
-
-1. Open `chrome://extensions`
-2. Enable **Developer mode** (top-right)
-3. **Load unpacked** → select the `dist/` folder
-4. Pin the toolbar icon, or press `Cmd+Shift+A` (Mac) / `Ctrl+Shift+A` to open the side panel
+## Installation
 
 Requires Chrome 120+.
 
-## The `debugger` permission — read this
+### Option A: download a pre-built build
 
-This extension requires the `debugger` permission, which triggers a scary install warning ("Access the page debugger — read and change all your data"). It also shows a **"this browser is being controlled by automated test software"** banner on every tab the agent controls.
+1. Go to the **[Actions](../../actions)** tab → **Build Extension** workflow.
+2. Open the latest successful run and download the **TabAgent** artifact (`TabAgent.zip`), then unzip it.
+3. Open `chrome://extensions`, enable **Developer mode** (top right), click **Load unpacked**, and select the unzipped folder.
 
-This is an intentional architectural decision (you chose CDP-required over a content-script fallback). The `debugger` API is the only way to access:
+> Workflow artifacts expire after 90 days. If the latest run is too old, re-run the workflow or build from source.
 
-- **The real accessibility tree** (`Accessibility.getFullAXTree`) — the agent's primary page-state representation
-- **Full-page screenshots** beyond the viewport (`Page.captureScreenshot`)
-- **Trusted input** (`Input.dispatchMouseEvent`) — defeats synthetic-event bot detection
-- **Cross-origin iframes** and **closed shadow DOM** (via CDP's DOM domain)
-- **File upload** (`DOM.setFileInputFiles`)
+### Option B: build from source
 
-Side benefit (Chrome 118+): an attached debugger session keeps the service worker alive for the duration of an agent run, which is the survival mechanism the loop relies on. The debugger is attached only during an active run and detached immediately when the run finishes, so the banner appears only while the agent is working.
+Requires Node.js.
 
-If you want to avoid the `debugger` warning, the design supports a content-script-only fallback tier (degraded AX tree via axe-core, no file upload, no closed shadow DOM) — but that is **not** what's wired up here.
+```sh
+npm install
+npm run build   # esbuild → dist/
+```
 
-## How it works (architecture)
+Then load `dist/` via **Load unpacked** as above.
+
+Shortcuts: **Cmd/Ctrl+Shift+A** opens the side panel; **Cmd/Ctrl+Shift+Y** opens the popup (a one-button side-panel launcher).
+
+> Chrome will warn about the `debugger` permission at install — see [The debugger permission](#the-debugger-permission) for why it's required.
+
+## Quick start
+
+1. Open the side panel (**Cmd/Ctrl+Shift+A** or the toolbar icon).
+2. Pick a provider — **Z.AI (Coding Plan)** is the default. Z.AI's coding plan is OpenAI-compatible; no OAuth or special flow.
+3. Paste your API key and click **Connect**. The key is validated live, host permission for the provider's domain is requested here (not at install), and the key is encrypted at rest on connect.
+4. Pick a model from the live model list. The default is **`glm-5.2`** — 1M context with reasoning support.
+5. Navigate to any page, type a goal — *"summarize this page"*, *"fill the search form and submit"*, *"click every unchecked checkbox"* — and hit Send.
+
+No passphrase, no setup wizard.
+
+## Providers
+
+| Provider | Endpoint | Notes |
+|---|---|---|
+| **Z.AI (Coding Plan)** | `api.z.ai/api/coding/paas/v4` | Default. Flat-rate subscription. GLM roster: `glm-5.2` (default), `glm-5.1`, `glm-5-turbo`, `glm-5`, `glm-4.7`, `glm-4.6`, `glm-4.5`, `glm-4.5-air` |
+| **Zhipu / BigModel** | `open.bigmodel.cn/api/paas/v4` | Same GLM family, separate key |
+| **OpenAI** | `api.openai.com/v1` | Pre-seeded models |
+| **OpenRouter** | `openrouter.ai/api/v1` | Fully dynamic model list |
+| **Custom (OpenAI-compatible)** | any base URL | Ollama, LM Studio, Groq, DeepSeek, Together, xAI, Fireworks, … — dynamic `GET /models` discovery |
+
+Z.AI's API quirks are handled automatically: `tool_stream: true` is injected into chat requests, `thinking: { type: "enabled" | "disabled" }` is set for reasoning models, and the `/models` health check tolerates `401` (Z.AI scopes that endpoint differently from chat).
+
+The Anthropic native adapter is currently a stub — use OpenRouter for Claude models. There is no Gemini adapter yet.
+
+All providers run through one adapter: `src/providers/openai-compat.ts`, with the catalog in `src/providers/catalog.ts`.
+
+## Browser tools
+
+Eleven CDP-backed tools, defined in `src/tools/browser-tools.ts`:
+
+| Tool | Description |
+|---|---|
+| `snapshot` | Page snapshot as YAML with `ref` ids for interactive elements (DOM walk over light DOM + open shadow roots) |
+| `click` | Trusted mouse click on a `ref` (left/right/middle, double-click) |
+| `type` | Focus a `ref` and type text, with optional clear and submit |
+| `hover` | Move the mouse over a `ref` (tooltips, dropdown triggers) |
+| `press_key` | Press a key or combo (`Escape`, `Tab`, `ctrl+a`, …) |
+| `scroll` | Scroll the page by pixels in any direction |
+| `scroll_to` | Scroll a `ref` element into view |
+| `navigate` | Go to a URL — gated behind user approval |
+| `screenshot` | Full-page JPEG, resized to fit a token budget |
+| `extractText` | Visible text of the page or a `ref` subtree |
+| `set_text` | Overwrite an element's text in place (powers page translation, auto LTR/RTL) |
+
+The agent loop also injects control tools: `propose_plan`, `suggest_actions`, `remember`, and `forget`.
+
+## How it works
 
 ```
-Side Panel (UI, no logic)
+Side panel (UI only)
       ↕  chrome.runtime messages
-Service Worker (orchestrator)
-   ├── Agent loop (resumable state machine)
-   ├── Checkpointing to chrome.storage.session + local mirror
-   ├── Permission service (Promise resolved by panel)
-   └── chrome.alarms heartbeat (recovery)
-      ↕  chrome.debugger (CDP)        ↕  fetch (streaming)
-Active tab (debuggee)              Offscreen doc (v2 streaming host)
+Service worker (orchestrator)
+   ├─ Agent loop — resumable state machine
+   ├─ Checkpointing — storage.session + local mirror
+   ├─ Permission & plan-approval services
+   └─ chrome.alarms heartbeat (recovery)
+      ↕  chrome.debugger (CDP)
+Active tab (debuggee)
 ```
+
+The loop (`src/background/loop.ts`) checkpoints state before every side effect, so recovery after a crash or service-worker restart is deterministic:
+
+- **Mid-stream** (no assistant message committed) → re-send the stream
+- **Mid-tool** (a mutating tool may have run) → stop and ask the user; mutating tools are never auto-replayed
+- **Idle/paused** → the service worker can die freely; state is preserved
+
+The debugger attaches when a run starts and detaches when it finishes. While attached, it also keeps the service worker alive for the duration of the run (Chrome 118+ behavior).
+
+There are no runtime dependencies: SSE parsing, markdown rendering, and crypto are implemented in-repo, and the UI is vanilla TypeScript.
+
+## The debugger permission
+
+TabAgent requires the `debugger` permission, which triggers a scary install warning and shows a *"this browser is being controlled by automated test software"* banner — but only while a run is active, since the debugger is attached at run start and detached at run finish.
+
+CDP is required for capabilities a content script cannot provide:
+
+- **Trusted input** (`Input.dispatchMouseEvent` and friends) that defeats synthetic-event bot detection
+- **Full-page screenshots** beyond the viewport
+- **Cross-origin iframes** and **closed shadow DOM**
+- **File upload** (`DOM.setFileInputFiles`)
+- **Service-worker keepalive** during long runs
+
+## Security & privacy
+
+- API keys are encrypted at rest with AES-GCM using a **random 256-bit master key auto-generated on first run** — no passphrase to manage. The master key lives in `chrome.storage.local`, which protects against content-script compromise (the realistic threat for an agent injected into arbitrary pages) but **not** disk forensics: an attacker with your disk gets key and ciphertext together.
+- Decrypted keys exist only in `chrome.storage.session` at `TRUSTED_CONTEXTS` access level — content scripts cannot read them.
+- All provider requests originate in the service worker, never in a content script.
+- Host permissions are requested per provider domain at connect time; the extension installs with no host permissions.
+- `navigate` requires explicit user approval per call, and other tools can be gated per site.
+- **Prompt injection is an inherent risk** for any agent that reads untrusted page content. TabAgent does not run an injection classifier — treat the agent like a user with limited trust and review its permission prompts.
+
+## Limitations
+
+- **Anthropic native adapter** is a stub (use OpenRouter for Claude); **no Gemini adapter**
+- **Pause is cancel** — true mid-run pause/resume is not implemented yet
+- **No cost tracking** — the default Z.AI plan is flat-rate; per-token accounting is absent elsewhere
+- **Single tab** — multi-tab orchestration is designed for but not built
+- **Offscreen streaming path** is implemented but dormant; the loop currently streams inside the service worker (safe because the attached debugger keeps it alive)
+- **No prompt-injection classifier** (see [Security & privacy](#security--privacy))
+- **Vanilla TS UI** — no framework
+
+## Development
+
+```sh
+npm run typecheck   # tsc --noEmit
+npm run build       # esbuild → dist/
+npm run clean       # rm -rf dist
+```
+
+Iterate by rebuilding, reloading the extension at `chrome://extensions`, and refreshing the target tab.
 
 Key files:
 
-- `src/core/types.ts` — canonical types (Message, StreamPart, Model, Session). Borrowed from crush's shapes.
-- `src/core/storage.ts` — encrypted credential store + session persistence.
-- `src/providers/openai-compat.ts` — the one adapter covering ~15 providers, with real SSE streaming.
-- `src/providers/catalog.ts` — Z.AI / Zhipu / OpenAI / OpenRouter / Custom / Anthropic-stub definitions.
-- `src/tools/browser-tools.ts` — snapshot (AX tree), click, type, navigate, screenshot, extractText.
-- `src/background/loop.ts` — the resumable agent loop. Read the invariants in its header.
-- `src/background/background.ts` — SW entry: message router, rehydrate, heartbeat, lifecycle.
-
-## Survival model
-
-The agent loop is a checkpointed state machine. Every state transition writes `updatedAt` + `pendingStep` before its side effect. During a run, the attached debugger keeps the SW alive. Across run boundaries, crashes, and detach events:
-
-- **Mid-stream (no assistant message committed)** → re-send the stream
-- **Mid-tool (mutating tools may have run)** → STOP and ask the user (never auto-replay a mutating tool)
-- **Idle/paused** → SW can die freely; state is preserved
-
-## What's real vs stubbed
-
-**Real (working):**
-- Z.AI coding plan — full streaming, tool-calling, reasoning, vision models, all three quirks
-- OpenAI-compat adapter — real SSE parsing, tool-call delta accumulation, retryable errors
-- OpenAI, OpenRouter, Zhipu, Custom providers via the same adapter
-- Resumable agent loop with checkpointing + alarms recovery + onStartup rehydrate
-- CDP-based browser tools: snapshot / click / type / navigate / screenshot / extractText
-- Permission prompts (navigate currently requires approval; per-site "always allow")
-- Encrypted credential storage (PBKDF2 + AES-GCM)
-- Side-panel chat UI with streaming, tool-result display, permission cards
-
-**Stubbed (throws `NotImplementedError` or falls back):**
-- **Anthropic native adapter** — listed in the catalog but resolves to the stub; use OpenRouter for Claude for now
-- **Gemini native adapter** — not yet present
-- **Auto-compact summarizer** — uses the active model (no separate cheap summarizer)
-- **Multi-tab orchestration** — designed for (sessions keyed by `tabId`, child-session plumbing is stubbed) but not built
-- **Offscreen-doc streaming path** — the doc is created and wired, but the v1 loop streams directly in the SW (safe because debugger keepalive keeps the SW alive during a run). The offscreen path is the v2 home for surviving SW death mid-stream.
-- **React UI** — vanilla TS in v1 (documented swap-in)
-- **MCP client, prompt library, plugin marketplace, workflows** — future
-
-## Security notes
-
-- API keys are encrypted at rest (AES-GCM) using a **random 256-bit master key auto-generated on first run**. No passphrase to remember — zero friction.
-- The master key lives in `chrome.storage.local`. **Honest caveat:** this protects against content-script compromise (the realistic threat for an agent that injects into arbitrary pages) but **not** against disk forensics — an attacker with your disk gets key + ciphertext together. The protection that *does* work against disk forensics would be a user passphrase, which we removed for friction. If you want that back, it's a small change in `src/core/storage.ts`.
-- Decrypted keys live only in `chrome.storage.session` at `TRUSTED_CONTEXTS` — content scripts (untrusted web origins) cannot read them.
-- All provider `fetch` calls originate in the service worker, never in a content script.
-- Host permissions are requested per-provider-domain at connect time (not broad at install).
-- `navigate` requires explicit user approval per call; other mutating tools can be gated similarly.
-- **Prompt injection is an inherent risk** for any agent that reads untrusted page content. This extension does not yet run an injection classifier — treat the agent like a user with limited trust, and review permission prompts.
-
-## Develop
-
-```
-npm run typecheck    # tsc --noEmit
-npm run build        # esbuild -> dist/
-```
-
-Iterate: rebuild, then reload the extension at `chrome://extensions` and refresh the target tab.
+- `src/background/loop.ts` — the resumable agent loop (read the invariants in its header)
+- `src/providers/openai-compat.ts` — the one adapter covering every provider
+- `src/providers/catalog.ts` — built-in provider and model definitions
+- `src/tools/browser-tools.ts` — the 11 CDP browser tools
+- `src/core/storage.ts` — encrypted credential store, settings, session persistence
 
 ## Credits
 
-Architecture adapted from [charmbracelet/crush](https://github.com/charmbracelet/crush) (the live successor to the archived `opencode-ai/opencode`) — particularly the OpenAI-compat adapter pattern, the canonical message/stream-part types, and the Z.AI catalog entry (`catwalk/internal/providers/configs/zai.json`). The browser-tool design follows the Playwright-MCP / Browser-MCP accessibility-snapshot + ref pattern.
+Architecture adapted from [charmbracelet/crush](https://github.com/charmbracelet/crush) — particularly the OpenAI-compat adapter pattern, the canonical message/stream-part types, and the Z.AI catalog entry. The browser-tool design follows the Playwright-MCP accessibility-snapshot + `ref` pattern.
+
+## License
+
+MIT
