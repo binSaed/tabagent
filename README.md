@@ -6,6 +6,10 @@ A Manifest V3 Chrome extension that turns the active tab into an AI-driven agent
 
 This is a working vertical slice implementing the agent-loop-and-survival layer. It is not the full platform yet (see "What's stubbed" below).
 
+## Demo
+
+https://github.com/user-attachments/assets/2adfd956-d6e8-4b5c-893d-dc04f92abe66
+
 ## Z.AI coding plan setup (recommended path)
 
 Z.AI's coding plan is OpenAI-compatible (confirmed via [crush](https://github.com/charmbracelet/crush)'s `catwalk` catalog). No OAuth, no special flow.
