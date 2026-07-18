@@ -1,15 +1,21 @@
 name: Build Extension
 
-# Builds the MV3 extension from source and uploads the built `dist/` directory
-# as a downloadable artifact. Users grab the latest build from the Actions tab
-# (see the "Download" section in README.md).
+# Builds the MV3 extension from source and publishes it for download.
+#
+# - On every push to main: builds and uploads a workflow artifact (for testing
+#   the latest commit; expires after 90 days).
+# - On a version tag (v1.0.0, v0.2.1, ...): builds, zips, and creates a GitHub
+#   Release with the zip permanently attached. Releases appear in the repo
+#   sidebar and have a stable download URL that never expires — this is what
+#   visitors use to install the extension. See the README "Download" section.
 on:
   push:
     branches: [main]
-  workflow_dispatch: # manual "Run workflow" button
+    tags: ["v*.*.*"]
+  workflow_dispatch: # manual "Run workflow" button (build + artifact only)
 
 permissions:
-  contents: read
+  contents: write # required by softprops/action-gh-release to create a release
 
 jobs:
   build:
@@ -25,13 +31,30 @@ jobs:
       - run: npm ci # reproducible install from lockfile
       - run: npm run build # node build.mjs -> dist/ (also generates manifest.json)
 
-      # Upload the dist/ *directory* (not a pre-made zip): upload-artifact@v4
-      # always zips the upload on download, so this yields one clean TabAgent.zip
-      # with manifest.json at the root — exactly what Chrome's "Load unpacked"
-      # expects once unzipped.
+      # Zip dist/ so the release asset is a single downloadable file with
+      # manifest.json at the root (what Chrome's "Load unpacked" expects once
+      # unzipped). Done only when we're going to attach it to a release.
+      - name: Package zip
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          cd dist
+          zip -r "../TabAgent-${{ github.ref_name }}.zip" .
+
+      # Every run: workflow artifact (90-day expiry, for testing latest commit).
       - uses: actions/upload-artifact@v4
         with:
           name: TabAgent
           path: dist
           if-no-files-found: error
           retention-days: 90
+
+      # Tagged builds only: publish a GitHub Release with the zip attached.
+      # Appears in the repo sidebar as "Releases · Latest" and gives a stable
+      # download URL: /releases/latest/download/TabAgent-<version>.zip
+      - name: Create release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: TabAgent-${{ github.ref_name }}.zip
+          generate_release_notes: true
+          name: ${{ github.ref_name }}

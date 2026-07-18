@@ -35,11 +35,12 @@ Requires Chrome 120+.
 
 ### Option A: download a pre-built build
 
-1. Go to the **[Actions](../../actions)** tab → **Build Extension** workflow.
-2. Open the latest successful run and download the **TabAgent** artifact (`TabAgent.zip`), then unzip it.
-3. Open `chrome://extensions`, enable **Developer mode** (top right), click **Load unpacked**, and select the unzipped folder.
+[![Download TabAgent](https://img.shields.io/badge/Download-TabAgent-4285F4?logo=googlechrome&logoColor=white)](../../releases/latest)
 
-> Workflow artifacts expire after 90 days. If the latest run is too old, re-run the workflow or build from source.
+1. Click the button above (or go to **[Releases](../../releases/latest)**) and download `TabAgent-vX.X.X.zip`, then unzip it.
+2. Open `chrome://extensions`, enable **Developer mode** (top right), click **Load unpacked**, and select the unzipped folder.
+
+> The release zip is permanently hosted and always points to the latest version.
 
 ### Option B: build from source
 
