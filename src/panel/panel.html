@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>AI Browser Agent</title>
+  <link rel="stylesheet" href="panel.css" />
+</head>
+<body>
+  <section id="chat">
+    <header>
+      <span class="brand"><span class="logo">A</span> Agent</span>
+      <button id="provider-chip" class="provider-chip" title="Change provider">
+        <span class="chip-icon">?</span>
+        <span class="chip-name">Provider</span>
+        <span class="chip-status" data-configured="false"></span>
+        <svg class="chip-caret" viewBox="0 0 10 10" width="10" height="10"><path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <select id="provider-select" style="display:none"></select>
+      <select id="model-select" class="model-select" title="Model"></select>
+      <span id="session-state" data-state="idle">idle</span>
+      <button id="export-btn" class="header-icon" data-empty="true" data-tip="Export conversation (debug)" aria-label="Export conversation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </button>
+      <button id="expand-all-btn" class="header-icon" data-mode="expand" data-tip="Expand all details" aria-label="Expand or collapse all thinking and tool details">
+        <svg class="unfold" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
+        <svg class="fold" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 20 5-5 5 5"/><path d="m7 4 5 5 5-5"/></svg>
+      </button>
+      <button id="memory-btn" class="header-icon" data-empty="true" data-tip="Memory: what the agent knows about you" aria-label="Open memory">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2a3.5 3.5 0 0 0-3.45 4.06A3.5 3.5 0 0 0 3 9.5v.55a3.5 3.5 0 0 0-1 2.45 3.49 3.49 0 0 0 1.64 2.94A3.5 3.5 0 0 0 6 21.5a3.5 3.5 0 0 0 3.5-3.5h5A3.5 3.5 0 0 0 18 21.5a3.5 3.5 0 0 0 2.36-6.06A3.49 3.49 0 0 0 22 12.5a3.5 3.5 0 0 0-1-2.45V9.5a3.5 3.5 0 0 0-3.05-3.44A3.5 3.5 0 0 0 14.5 2h-5z"/><line x1="9.5" y1="6" x2="9.5" y2="18"/><line x1="14.5" y1="6" x2="14.5" y2="18"/></svg>
+      </button>
+      <button id="theme-btn" class="header-icon" data-theme="dark" data-tip="Theme: dark (click for light)" aria-label="Switch to light theme">
+        <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+        <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+      <button id="notify-btn" class="header-icon" data-on="true" data-tip="Notifications: on" aria-label="Toggle notifications">
+        <svg class="bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <svg class="bell-slash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.73 21a2 2 0 0 1-3.46 0"/><path d="M18.63 13A17.89 17.89 0 0 1 18 8"/><path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"/><path d="M18 8a6 6 0 0 0-9.33-5"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+      </button>
+    </header>
+    <div id="notice" class="notice"></div>
+
+    <!-- Provider picker overlay -->
+    <div id="provider-picker" class="picker-overlay" hidden>
+      <div class="picker-card">
+        <div class="picker-head">
+          <span class="picker-title">Providers</span>
+          <button id="picker-close" class="icon-btn" title="Close">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+          </button>
+        </div>
+        <div id="provider-grid" class="provider-grid"></div>
+      </div>
+    </div>
+
+    <!-- Connect modal -->
+    <div id="connect-modal" class="picker-overlay" hidden>
+      <div class="picker-card">
+        <div class="picker-head">
+          <span class="picker-title" id="connect-modal-title">Connect</span>
+          <button id="connect-close" class="icon-btn" title="Close">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+          </button>
+        </div>
+        <div id="connect-modal-body"></div>
+      </div>
+    </div>
+
+    <!-- Memory modal: what the agent has learned about the user -->
+    <div id="memory-modal" class="picker-overlay" hidden>
+      <div class="picker-card memory-card">
+        <div class="picker-head">
+          <span class="picker-title">Memory</span>
+          <button id="memory-close" class="icon-btn" title="Close">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+          </button>
+        </div>
+        <p class="memory-blurb">What the agent has learned about you. It uses these notes to personalize replies. You can edit or remove anything.</p>
+        <div id="memory-list" class="memory-list"></div>
+        <div class="memory-add">
+          <input id="memory-new-text" class="memory-input" type="text" dir="auto" placeholder="Add a note (e.g. 'Prefers replies in Arabic')" />
+          <select id="memory-new-cat" class="memory-select">
+            <option value="identity">Identity</option>
+            <option value="preference">Preference</option>
+            <option value="interest">Interest</option>
+            <option value="work">Work</option>
+            <option value="other" selected>Other</option>
+          </select>
+          <button id="memory-add-btn" class="memory-add-btn">Add</button>
+        </div>
+        <div class="memory-foot">
+          <button id="memory-clear" class="memory-clear">Forget everything</button>
+        </div>
+      </div>
+    </div>
+    <div id="messages"></div>
+    <footer>
+      <div class="composer-wrap">
+        <textarea id="composer" dir="auto" placeholder="Ask the agent to do something on this page..." rows="1"></textarea>
+        <div class="composer-actions">
+          <button id="autonomy-btn" class="composer-icon autonomy" title="Ask before acting">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </button>
+          <button id="stop-btn" class="composer-icon" style="display:none" title="Stop">
+            <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg>
+          </button>
+          <button id="send-btn" title="Send">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+          </button>
+        </div>
+      </div>
+      <span id="queue-badge" class="queue-badge" style="display:none"></span>
+      <div class="mode-bar">
+        <span class="mode-label">Mode</span>
+        <div class="mode-switch">
+          <button id="mode-ask" class="active" title="Confirm each action before it runs">Ask before acting</button>
+          <button id="mode-auto" title="Run actions automatically with no prompts">Act without asking</button>
+        </div>
+      </div>
+      <div class="composer-hint"><kbd>Enter</kbd> to send · <kbd>Shift+Enter</kbd> for newline</div>
+    </footer>
+  </section>
+
+  <script src="panel.js"></script>
+</body>
+</html>

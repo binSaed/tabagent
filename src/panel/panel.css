@@ -1,0 +1,2171 @@
+/* ---- Source Serif 4 (bundled; for AI response text) -------------------- */
+/* Variable font, latin subset, ~50KB. Used only inside .bubble.assistant so
+   AI responses read in an editorial serif while UI/user text stays sans.
+   font-display: swap falls back to Georgia until the woff2 arrives. */
+@font-face {
+  font-family: "Source Serif 4";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("fonts/SourceSerif4-Variable.woff2") format("woff2-variations");
+}
+
+/* ===========================================================================
+   AI Browser Agent — Side Panel
+   Warm dual-theme design (light + dark) driven by [data-theme] on <html>.
+   Orange (#FF6B35) brand accent. Serif for AI responses, sans for everything
+   else — learned from the Claude extension's design system, reimplemented in
+   plain CSS. Rounded composer docked at the bottom.
+   =========================================================================== */
+
+/* ---- Font tokens (shared) ---------------------------------------------- */
+:root {
+  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto,
+    Helvetica, Arial, sans-serif;
+  --font-serif: "Source Serif 4", "Source Serif Pro", "New York", Georgia,
+    "Times New Roman", serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas,
+    monospace;
+}
+
+/* ---- Dark theme (default) — warm near-blacks, never cold gray ----------- */
+[data-theme="dark"] {
+  /* Surfaces */
+  --bg: #1c1a17;
+  --bg-elev: #252320;
+  --bg-input: #2c2925;
+  --bg-hover: #322e2a;
+  --bg-overlay: rgba(15, 13, 11, 0.6);
+
+  /* Text (warm whites) */
+  --fg: #ece9e4;
+  --fg-secondary: #ada69c;
+  --fg-muted: #78716a;
+
+  /* Brand / accents (unchanged orange identity) */
+  --accent: #ff6b35;
+  --accent-hover: #ff7d4d;
+  --accent-soft: rgba(var(--accent-rgb), 0.14);
+  --accent-on-light: #e85d2a;
+  /* Raw RGB channels for rgba() tints/glows that must track the accent. */
+  --accent-rgb: 255, 107, 53;
+  /* Lighter stop for the brand gradient (logo, empty-state glyph). */
+  --accent-light: #ff9d73;
+
+  /* Status */
+  --error: #ff6b6b;
+  --error-bg: #3a2222;
+  --warn: #e0a92e;
+  --ok: #5ed687;
+
+  /* Borders (warm grays) */
+  --border: #3a3631;
+  --border-soft: #2c2925;
+  --border-strong: #4a443d;
+  --reasoning-bg: #211d2a;
+
+  /* Scrollbar */
+  --scrollbar: #3a3631;
+
+  color-scheme: dark;
+}
+
+/* ---- Light theme — warm cream (Claude's signature warmth) -------------- */
+[data-theme="light"] {
+  /* Surfaces */
+  --bg: #faf9f5;
+  --bg-elev: #f3f0e8;
+  --bg-input: #ffffff;
+  --bg-hover: #efeae0;
+  --bg-overlay: rgba(40, 36, 28, 0.4);
+
+  /* Text (warm near-black) */
+  --fg: #2b2926;
+  --fg-secondary: #5c574f;
+  --fg-muted: #8a8478;
+
+  /* Brand — deepened slightly on light for AA contrast on cream */
+  --accent: #e85d2a;
+  --accent-hover: #d44d1d;
+  --accent-soft: rgba(232, 93, 42, 0.1);
+  --accent-on-light: #e85d2a;
+  --accent-rgb: 232, 93, 42;
+  --accent-light: #f4946a;
+
+  /* Status (deepened for contrast) */
+  --error: #d23b3b;
+  --error-bg: #fbe9e9;
+  --warn: #b8810c;
+  --ok: #1f9d55;
+
+  /* Borders (warm) */
+  --border: #e0dbd0;
+  --border-soft: #ebe7dd;
+  --border-strong: #c9c2b3;
+  --reasoning-bg: #f1edf6;
+
+  /* Scrollbar */
+  --scrollbar: #d6d0c2;
+
+  color-scheme: light;
+}
+
+/* Radii + font-family are theme-independent. */
+:root {
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+  font-family: var(--font-ui);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 14px;
+  height: 100vh;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+#chat {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* ===========================================================================
+   Header — model dropdown + icon buttons
+   =========================================================================== */
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border-soft);
+  min-height: 52px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.2px;
+  color: var(--fg);
+  margin-right: 4px;
+}
+
+.brand .logo {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-light));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+select.model-select,
+select#provider-select,
+select#model-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 6px 28px 6px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path d='M2 3.5L5 6.5L8 3.5' stroke='%23a8a8a8' stroke-width='1.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+select.model-select:hover,
+select#provider-select:hover,
+select#model-select:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+
+select:focus,
+input:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.icon-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--fg-secondary);
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.icon-btn:hover {
+  background: var(--bg-hover);
+  color: var(--fg);
+  border-color: var(--border);
+}
+
+.icon-btn.primary {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: rgba(var(--accent-rgb), 0.3);
+}
+
+.icon-btn.primary:hover {
+  background: rgba(var(--accent-rgb), 0.18);
+}
+
+.icon-btn svg {
+  width: 17px;
+  height: 17px;
+}
+
+#session-state {
+  margin-left: auto;
+  color: var(--fg-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#session-state::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--fg-muted);
+  display: inline-block;
+}
+
+#session-state[data-state="running"]::before,
+#session-state[data-state="streaming"]::before,
+#session-state[data-state="tool"]::before {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.18);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+#session-state[data-state="idle"]::before {
+  background: var(--ok);
+}
+
+/* Header bell toggle (notification sound + toasts). Mirrors composer-icon
+   sizing so the two icon families read as one design system. */
+.header-icon {
+  margin-left: 8px;
+  background: transparent;
+  border: none;
+  color: var(--fg-secondary);
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+  position: relative;
+}
+.header-icon:hover {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+.header-icon svg {
+  width: 16px;
+  height: 16px;
+}
+/* Only one of the two SVGs is shown at a time; the slash (muted state) sits
+   on top when data-on="false". */
+.header-icon .bell-slash {
+  display: none;
+}
+.header-icon[data-on="false"] .bell {
+  display: none;
+}
+.header-icon[data-on="false"] .bell-slash {
+  display: inline-block;
+}
+.header-icon[data-on="false"] {
+  color: var(--fg-muted);
+}
+
+/* Hover labels for header icons. We use a data-tip attribute (not the native
+   title) so the label appears instantly and is styled to match the panel.
+   The label drops BELOW the icon so it is never clipped by the header edge,
+   and fades in on hover/focus. */
+.header-icon[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) translateY(-2px);
+  background: var(--bg-elev);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 50;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+.header-icon[data-tip]:hover::after,
+.header-icon[data-tip]:focus-visible::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Expand/collapse-all toggle: "unfold" icon when clicking will EXPAND all
+   thinking/tool blocks, "fold" icon when clicking will collapse them. One SVG
+   visible at a time, mirroring the bell/bell-slash pattern. */
+#expand-all-btn .unfold,
+#expand-all-btn .fold {
+  display: none;
+}
+#expand-all-btn[data-mode="expand"] .unfold {
+  display: inline-block;
+}
+#expand-all-btn[data-mode="collapse"] .fold {
+  display: inline-block;
+}
+
+/* Theme toggle: show the sun in dark mode (click for light), moon in light
+   mode (click for dark). Only one of the two SVGs is visible at a time,
+   mirroring the bell/bell-slash pattern above. */
+#theme-btn .sun,
+#theme-btn .moon {
+  display: none;
+}
+#theme-btn[data-theme="dark"] .sun {
+  display: inline-block;
+}
+#theme-btn[data-theme="light"] .moon {
+  display: inline-block;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/* ===========================================================================
+   Auth fields (provider connection form)
+   =========================================================================== */
+
+.auth-fields {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.auth-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11.5px;
+  color: var(--fg-secondary);
+  font-weight: 500;
+}
+
+.auth-fields input {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--fg);
+  transition: border-color 0.15s;
+}
+
+.auth-fields input::placeholder {
+  color: var(--fg-muted);
+}
+
+#connect-btn {
+  align-self: flex-start;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s, filter 0.15s;
+}
+
+#connect-btn:hover {
+  background: var(--accent-hover);
+  filter: brightness(1.05);
+}
+
+/* ===========================================================================
+   Notice line (transient status / errors)
+   =========================================================================== */
+
+#notice {
+  padding: 6px 14px;
+  font-size: 11.5px;
+  color: var(--fg-secondary);
+  min-height: 18px;
+  background: var(--bg);
+}
+
+#notice.error {
+  color: var(--error);
+  background: var(--error-bg);
+}
+
+/* ===========================================================================
+   Messages area
+   =========================================================================== */
+
+#messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar) transparent;
+}
+
+/* CRITICAL: never let flex compress messages when the list overflows.
+   Children of a column flex container shrink to fit by default, and any child
+   with overflow:hidden (the .collapse blocks) has a min-size of ZERO — so in a
+   long conversation the thinking/tool rows were crushed into 1px lines. */
+#messages > * {
+  flex-shrink: 0;
+}
+
+#messages::-webkit-scrollbar {
+  width: 8px;
+}
+
+#messages::-webkit-scrollbar-thumb {
+  background: var(--scrollbar);
+  border-radius: 4px;
+}
+
+#messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Empty state — centered greeting, shown when no messages */
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 14px;
+  color: var(--fg-secondary);
+  padding: 30px 20px;
+}
+
+.empty-state .glyph {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-light));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+  box-shadow: 0 6px 20px rgba(var(--accent-rgb), 0.25);
+}
+
+.empty-state .title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.empty-state .subtitle {
+  font-size: 13px;
+  color: var(--fg-secondary);
+  max-width: 280px;
+  line-height: 1.5;
+}
+
+.empty-state .suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  max-width: 320px;
+  margin-top: 6px;
+}
+
+.empty-state .suggestion {
+  background: var(--bg-elev);
+  border: 1px solid var(--border-soft);
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  font-size: 12.5px;
+  color: var(--fg-secondary);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background-color 0.15s, color 0.15s;
+}
+
+.empty-state .suggestion:hover {
+  border-color: var(--border);
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+
+/* Suggested next-action chips shown under an assistant message. */
+.suggestions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 2px;
+}
+
+.suggestion-chip {
+  background: var(--bg-elev);
+  border: 1px solid var(--border-soft);
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--fg-secondary);
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s, color 0.15s;
+  max-width: 100%;
+}
+
+.suggestion-chip:hover {
+  border-color: var(--border);
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+
+/* Bubbles. Base applies to every role; per-role classes override below.
+   Note the typeface split: AI responses (.bubble.assistant) render in the
+   bundled serif for an editorial feel, while user messages and all UI stay
+   in the sans stack. This role-by-font differentiation is the signature
+   visual cue (more than color). */
+.bubble {
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  max-width: 88%;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  font-size: 13.5px;
+  line-height: 1.55;
+  animation: rise 0.18s ease-out;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.bubble.user {
+  background: var(--accent);
+  color: #fff;
+  align-self: flex-end;
+  border-bottom-right-radius: 4px;
+  /* Extra top gap so each user message visually opens a new turn. */
+  margin-top: 8px;
+  /* Tiny warm shadow so the bubble sits above the surface instead of floating flat. */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+/* AI responses: open, document-style text — no box, full width, serif. The
+   absence of a bubble is what makes AI text read as "written" rather than
+   "chatted"; user messages keep the bubble so the two roles stay distinct. */
+.bubble.assistant {
+  background: transparent;
+  border: none;
+  align-self: stretch;
+  max-width: 100%;
+  padding: 2px 2px 6px;
+  font-family: var(--font-serif);
+  font-size: 15px;
+  line-height: 1.65;
+  box-shadow: none;
+  /* Assistant content is rendered Markdown (<p>, <br/>): pre-wrap would ALSO
+     render the raw newlines between block tags, doubling every paragraph gap.
+     User bubbles are plain text and keep pre-wrap from the .bubble base. */
+  white-space: normal;
+}
+
+/* While streaming, AI text reveals chunk-by-chunk: panel.ts tags the
+   trailing block (.stream-token) on each delta and re-triggers this fade.
+   Reduced-motion users get instant render (no animation). */
+@media (prefers-reduced-motion: no-preference) {
+  .bubble.assistant.streaming .stream-token {
+    animation: fadeInText 0.32s ease-out both;
+  }
+}
+
+@keyframes fadeInText {
+  from {
+    opacity: 0;
+    filter: blur(0.5px);
+  }
+  to {
+    opacity: 1;
+    filter: none;
+  }
+}
+
+/* ---- Bidirectional text (Arabic, Hebrew, Farsi …) ----------------------- */
+/* `unicode-bidi: plaintext` resolves direction PER BLOCK from its own first
+   strong character, so an Arabic reply flows right-to-left while an English
+   one stays left-to-right — even mixed within one message. `text-align: start`
+   makes the alignment follow that resolved direction. */
+.bubble,
+.bubble p,
+.bubble li,
+.bubble h1, .bubble h2, .bubble h3, .bubble h4, .bubble h5, .bubble h6,
+.collapse-body {
+  unicode-bidi: plaintext;
+  text-align: start;
+}
+
+/* Code is source text: always left-to-right regardless of the reply language. */
+.bubble .md-code,
+.bubble code,
+.collapse.tool .collapse-body {
+  direction: ltr;
+  unicode-bidi: isolate;
+  text-align: left;
+}
+
+/* Rendered Markdown inside bubbles */
+.bubble p {
+  margin: 0 0 8px;
+}
+.bubble p:last-child {
+  margin-bottom: 0;
+}
+.bubble h1, .bubble h2, .bubble h3, .bubble h4, .bubble h5, .bubble h6 {
+  margin: 10px 0 6px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.bubble h1 { font-size: 16px; }
+.bubble h2 { font-size: 15px; }
+.bubble h3 { font-size: 14px; }
+.bubble h4, .bubble h5, .bubble h6 { font-size: 13px; }
+.bubble ul, .bubble ol {
+  margin: 4px 0 8px;
+  /* Logical property so bullets indent on the correct side in RTL replies. */
+  padding-inline-start: 20px;
+  unicode-bidi: plaintext;
+}
+.bubble li {
+  margin: 2px 0;
+}
+.bubble strong {
+  font-weight: 600;
+  color: var(--fg);
+}
+.bubble em {
+  font-style: italic;
+}
+.bubble hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 10px 0;
+}
+.bubble code {
+  font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.bubble .md-code {
+  font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  margin: 8px 0;
+  overflow-x: auto;
+  white-space: pre;
+  scrollbar-width: thin;
+  line-height: 1.5;
+}
+.bubble .md-code code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+}
+.bubble a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.bubble a:hover {
+  text-decoration: underline;
+}
+
+/* GFM tables rendered from model output. */
+.bubble .md-table-wrap {
+  margin: 8px 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.bubble .md-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.bubble .md-table th,
+.bubble .md-table td {
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+.bubble .md-table th {
+  background: var(--bg-elev);
+  color: var(--fg);
+  font-weight: 600;
+}
+.bubble .md-table tbody tr:nth-child(even) td {
+  background: var(--bg);
+}
+.bubble .md-table tbody tr:nth-child(odd) td {
+  background: var(--bg-input);
+}
+.bubble .md-table code {
+  /* keep inline code readable inside cells */
+  white-space: nowrap;
+}
+
+/* A live assistant turn: a blinking caret-style bar at the left edge signals
+   "still writing" without boxing the text back in. */
+.bubble.assistant.streaming {
+  border-left: 2px solid rgba(var(--accent-rgb), 0.5);
+  padding-left: 10px;
+  border-radius: 2px;
+}
+
+.bubble.reasoning {
+  background: var(--reasoning-bg);
+  border: 1px dashed var(--border);
+  color: var(--fg-secondary);
+  font-style: italic;
+  font-size: 12px;
+  align-self: flex-start;
+  border-radius: var(--radius-md);
+}
+
+.bubble.tool,
+.bubble.tool-result {
+  background: var(--bg-elev);
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--accent);
+  color: var(--fg-secondary);
+  font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+  align-self: flex-start;
+  max-width: 95%;
+}
+
+.bubble.tool-result.error {
+  border-left-color: var(--error);
+  color: var(--error);
+}
+
+.bubble.error {
+  background: var(--error-bg);
+  border: 1px solid rgba(255, 92, 92, 0.3);
+  border-left: 3px solid var(--error);
+  color: var(--error);
+  align-self: stretch;
+  max-width: 100%;
+}
+
+/* ===========================================================================
+   Typing indicator — three bouncing dots while waiting for the model
+   =========================================================================== */
+
+.typing-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  align-self: flex-start;
+  padding: 13px 15px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  border-bottom-left-radius: 4px;
+  animation: rise 0.18s ease-out;
+}
+
+.typing-indicator span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--fg-muted);
+  animation: typing-bounce 1.2s ease-in-out infinite;
+}
+
+.typing-indicator span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.typing-indicator span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes typing-bounce {
+  0%, 55%, 100% {
+    transform: translateY(0);
+    opacity: 0.35;
+  }
+  25% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+/* Reduced motion: fade the dots in place instead of bouncing them, and snap
+   collapse blocks open/closed instantly instead of animating the height. */
+@media (prefers-reduced-motion: reduce) {
+  .typing-indicator span {
+    animation: blink 1.4s infinite both;
+  }
+  .collapse,
+  .collapse-body,
+  .collapse .chevron {
+    transition: none;
+  }
+}
+
+/* ===========================================================================
+   Collapsible tool calls + reasoning blocks
+   =========================================================================== */
+
+.collapse {
+  background: var(--bg-elev);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  align-self: stretch;
+  max-width: 100%;
+  overflow: hidden;
+  /* Animated expand/collapse via grid-track interpolation: the body sits in a
+     0fr row that grows to 1fr (its content height) when .open is added. This
+     animates to/from an AUTO height with pure CSS — no JS measuring. */
+  display: grid;
+  grid-template-rows: auto 0fr;
+  transition: grid-template-rows 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.collapse.open {
+  grid-template-rows: auto 1fr;
+}
+
+.collapse-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+  color: var(--fg-secondary);
+  transition: background-color 0.12s;
+}
+
+.collapse-header:hover {
+  background: var(--bg-hover);
+}
+
+.collapse .chevron {
+  width: 10px;
+  height: 10px;
+  min-width: 10px;
+  color: var(--fg-muted);
+  /* Matches the body's grid-row transition so the chevron and the reveal
+     finish together. */
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.collapse.open .chevron {
+  transform: rotate(90deg);
+}
+
+.collapse-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.collapse-meta {
+  font-size: 10.5px;
+  color: var(--fg-muted);
+  flex-shrink: 0;
+}
+
+/* The body is ALWAYS rendered (the grid row above animates its height).
+   Collapsed: zero-height row + zero padding/border so nothing peeks through;
+   visibility flips after the height animation ends so content can't be
+   focused/read while hidden. Padding and border-width animate alongside the
+   row for a seamless reveal. */
+.collapse-body {
+  min-height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  padding: 0 10px;
+  border-top: 0 solid var(--border-soft);
+  font-size: 11.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 320px;
+  scrollbar-width: thin;
+  transition:
+    padding 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    border-top-width 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    visibility 0s 0.28s;
+}
+
+.collapse.open .collapse-body {
+  visibility: visible;
+  padding: 8px 10px 10px;
+  border-top-width: 1px;
+  overflow-y: auto;
+  transition:
+    padding 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    border-top-width 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    visibility 0s;
+}
+
+/* Tool-specific collapse variants */
+.collapse.tool {
+  border-left: 3px solid var(--accent);
+}
+
+.collapse.tool .collapse-label {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+.collapse.tool.error {
+  border-left-color: var(--error);
+}
+
+.collapse.tool .collapse-body {
+  font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+  color: var(--fg-secondary);
+}
+
+.collapse.tool.error .collapse-label {
+  color: var(--error);
+}
+
+/* A pending tool row: accent-tinted label + inline spinner in the meta slot
+   (the spinner span is emitted by panel.ts). */
+.collapse.tool.pending .collapse-label {
+  color: var(--fg);
+}
+
+.collapse.tool.pending .collapse-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--accent);
+}
+
+/* Screenshot image inside a tool-result body */
+.collapse .collapse-body .tool-screenshot {
+  max-width: 100%;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-soft);
+  cursor: zoom-in;
+  display: block;
+  transition: opacity 0.15s;
+}
+
+.collapse .collapse-body .tool-screenshot:hover {
+  opacity: 0.92;
+}
+
+/* Full-screen image lightbox (click screenshot to enlarge) */
+.image-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  cursor: zoom-out;
+  animation: fade 0.12s ease-out;
+}
+
+.image-lightbox img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: var(--radius-md);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+/* Reasoning collapse variant — quieter than tool rows: no fill, dashed hair-
+   line border, muted violet label. Reads as "the model's margin notes". */
+.collapse.reasoning {
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-left: 3px solid #9c8bbd;
+}
+
+.collapse.reasoning .collapse-header {
+  color: #8d7fb0;
+  font-weight: 500;
+}
+
+[data-theme="dark"] .collapse.reasoning .collapse-header {
+  color: #b8a9d4;
+}
+
+.collapse.reasoning .collapse-body {
+  font-style: italic;
+  font-family: var(--font-serif);
+  font-size: 13px;
+  color: var(--fg-secondary);
+  /* Style/color only — the WIDTH is animated by the base .collapse-body rules
+     (a fixed 1px here would leave a stray line under collapsed headers). */
+  border-top-style: dashed;
+}
+
+.collapse.reasoning .thinking-dots {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: 4px;
+}
+
+.collapse.reasoning .thinking-dots span {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #b8a9d4;
+  animation: blink 1.4s infinite both;
+}
+
+.collapse.reasoning .thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+.collapse.reasoning .thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes blink {
+  0%, 80%, 100% { opacity: 0.2; }
+  40% { opacity: 1; }
+}
+
+/* ===========================================================================
+   Cards (permission, interrupted)
+   =========================================================================== */
+
+.card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.card.permission {
+  border-color: rgba(212, 160, 23, 0.4);
+  border-left: 3px solid var(--warn);
+}
+
+/* Site hostname shown on a permission card (the domain an "allow on site"
+ * grant would cover). */
+.card-site {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--fg-muted);
+  font-family: var(--mono, ui-monospace, monospace);
+}
+
+/* "Allow on this site" — domain-wide grant. Subtler than the primary "allow"
+ * (which is one-shot) so the eye lands on the safest choice first. */
+.card button.allow-on-site {
+  background: transparent;
+  color: var(--fg);
+  border: 1px solid var(--border);
+}
+
+.card.interrupted {
+  border-color: rgba(255, 92, 92, 0.4);
+  border-left: 3px solid var(--error);
+}
+
+.card.plan {
+  border-color: rgba(79, 158, 255, 0.35);
+  border-left: 3px solid #4f9eff;
+}
+
+.card.plan[data-plan-status="progress"] {
+  border-color: rgba(var(--accent-rgb), 0.35);
+  border-left-color: var(--accent);
+}
+
+.card.plan[data-plan-status="done"] {
+  border-color: rgba(74, 222, 128, 0.3);
+  border-left-color: var(--ok);
+}
+
+/* Plan header status badge */
+.plan-status {
+  margin-left: auto;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  line-height: 1.4;
+}
+
+.plan-status.proposed {
+  color: #4f9eff;
+  background: rgba(79, 158, 255, 0.12);
+}
+
+.plan-status.progress {
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.12);
+}
+
+.plan-status.progress::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-right: 5px;
+  vertical-align: 1px;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.plan-status.done {
+  color: var(--ok);
+  background: rgba(74, 222, 128, 0.12);
+}
+
+.plan-title-text {
+  flex: 1;
+}
+
+/* Inline running / done badges (replace the buttons after approval) */
+.plan-running-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent);
+}
+
+.mini-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(var(--accent-rgb), 0.25);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.plan-done-badge {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ok);
+}
+
+/* Plan checklist */
+.plan-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.plan-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 6px 4px;
+  border-radius: var(--radius-sm);
+  transition: opacity 0.2s;
+}
+
+.plan-step .step-marker {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  border-radius: 50%;
+  border: 1.5px solid var(--fg-muted);
+  margin-top: 1px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.plan-step.done .step-marker {
+  background: var(--ok);
+  border-color: var(--ok);
+}
+
+.plan-step.done .step-marker::after {
+  content: "";
+  width: 4px;
+  height: 8px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translateY(-1px);
+}
+
+/* In-progress step: spinner fills the checkbox marker */
+.plan-step.progress .step-marker {
+  border-color: var(--accent);
+  border-top-color: transparent;
+  animation: spin 0.7s linear infinite;
+}
+
+.plan-step.progress .step-title {
+  color: var(--accent);
+}
+
+.plan-step .step-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+}
+
+.plan-step .step-title {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--fg);
+  line-height: 1.35;
+}
+
+.plan-step.done .step-title {
+  color: var(--fg-secondary);
+  text-decoration: line-through;
+  text-decoration-color: var(--fg-muted);
+}
+
+.plan-step .step-detail {
+  font-size: 11.5px;
+  color: var(--fg-muted);
+  line-height: 1.35;
+}
+
+.plan-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.plan-approved-badge {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ok);
+  padding: 4px 2px;
+}
+
+.card-title {
+  font-weight: 600;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-body {
+  color: var(--fg-secondary);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.card-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.card button {
+  background: var(--bg-input);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.card button:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+
+.card button.allow,
+.card button.retry {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.card button.allow:hover,
+.card button.retry:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+/* ===========================================================================
+   Composer footer
+   =========================================================================== */
+
+footer {
+  padding: 10px 12px 14px;
+  background: var(--bg);
+  border-top: 1px solid var(--border-soft);
+}
+
+.composer-wrap {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 6px 6px 6px 12px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.composer-wrap:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.12);
+}
+
+#composer {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--fg);
+  font-size: 13.5px;
+  line-height: 1.5;
+  resize: none;
+  padding: 7px 0;
+  max-height: 160px;
+  outline: none;
+}
+
+#composer::placeholder {
+  color: var(--fg-muted);
+}
+
+.composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.composer-icon {
+  background: transparent;
+  border: none;
+  color: var(--fg-secondary);
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.composer-icon:hover {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+
+.composer-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+#send-btn,
+#stop-btn {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.15s, filter 0.15s, transform 0.1s;
+}
+
+#send-btn {
+  background: var(--accent);
+  color: #fff;
+}
+
+#send-btn:hover {
+  background: var(--accent-hover);
+  filter: brightness(1.08);
+}
+
+#send-btn:active {
+  transform: scale(0.94);
+}
+
+#send-btn:disabled {
+  background: var(--border);
+  color: var(--fg-muted);
+  cursor: not-allowed;
+}
+
+#stop-btn {
+  background: var(--bg-hover);
+  color: var(--fg);
+  border: 1px solid var(--border);
+}
+
+#stop-btn:hover {
+  background: var(--scrollbar);
+}
+
+#send-btn svg,
+#stop-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.composer-hint {
+  margin-top: 6px;
+  text-align: center;
+  font-size: 10.5px;
+  color: var(--fg-muted);
+}
+
+.composer-hint kbd {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-family: ui-monospace, monospace;
+  color: var(--fg-secondary);
+}
+
+/* ===========================================================================
+   Message queue + steering
+   =========================================================================== */
+
+/* A queued user message: dashed border + muted look to show it's waiting */
+.bubble.user.queued {
+  background: var(--bg-elev);
+  color: var(--fg-secondary);
+  border: 1px dashed var(--border);
+  border-bottom-right-radius: 4px;
+}
+
+.queued-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 9.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.12);
+  border-radius: var(--radius-pill);
+  vertical-align: 1px;
+}
+
+/* Queue count badge near the composer */
+.queue-badge {
+  display: inline-block;
+  margin: 4px 2px 0;
+  padding: 2px 9px;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.1);
+  border: 1px solid rgba(var(--accent-rgb), 0.2);
+  border-radius: var(--radius-pill);
+}
+
+/* When the agent is busy, show a steering hint under the composer */
+.composer-wrap.busy #composer::placeholder {
+  color: var(--fg-muted);
+}
+
+footer:has(.composer-wrap.busy) .composer-hint::after {
+  content: " · messages will be steered into the next turn";
+  color: var(--accent);
+}
+
+/* ===========================================================================
+   Provider chip (header) + picker overlay + connect modal
+   =========================================================================== */
+
+.provider-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 5px 8px 5px 6px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 500;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.provider-chip:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
+}
+
+.provider-chip .chip-icon {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  border-radius: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--accent);
+}
+
+.provider-chip .chip-name {
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.provider-chip .chip-status {
+  width: 8px;
+  height: 8px;
+  min-width: 8px;
+  border-radius: 50%;
+  border: 1.5px solid var(--fg-muted);
+}
+
+.provider-chip .chip-status[data-configured="true"] {
+  background: var(--ok);
+  border-color: var(--ok);
+  box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.2);
+}
+
+.provider-chip .chip-caret {
+  color: var(--fg-muted);
+  margin-left: 2px;
+}
+
+/* Picker overlay (shared by provider picker + connect modal) */
+.picker-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: fade 0.12s ease-out;
+}
+
+.picker-overlay[hidden] {
+  display: none;
+}
+
+@keyframes fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.picker-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 420px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: pop 0.14s ease-out;
+}
+
+@keyframes pop {
+  from { opacity: 0; transform: scale(0.96) translateY(6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-soft);
+  position: sticky;
+  top: 0;
+  background: var(--bg-elev);
+  z-index: 1;
+}
+
+.picker-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* Provider grid */
+.provider-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  padding: 12px;
+}
+
+.provider-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s, transform 0.1s;
+  text-align: left;
+  position: relative;
+}
+
+.provider-tile:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
+}
+
+.provider-tile:active {
+  transform: scale(0.98);
+}
+
+.provider-tile.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.provider-tile .tile-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.provider-tile .tile-icon {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.provider-tile .tile-name {
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.provider-tile .tile-sub {
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+
+.provider-tile .tile-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+}
+
+.provider-tile .tile-status.configured {
+  color: var(--ok);
+  background: rgba(74, 222, 128, 0.12);
+}
+
+.provider-tile .tile-status.not-configured {
+  color: var(--fg-muted);
+  background: var(--bg-elev);
+}
+
+.provider-tile .tile-status .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* Connect modal body */
+.connect-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.connect-body .field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.connect-body .field label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--fg-secondary);
+}
+
+.connect-body .field input {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 9px 11px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  transition: border-color 0.15s;
+}
+
+.connect-body .field input:focus {
+  border-color: var(--accent);
+}
+
+.connect-body .field .help {
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+
+.connect-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.btn-validate,
+.btn-connect {
+  padding: 9px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background-color 0.15s, opacity 0.15s;
+}
+
+.btn-validate {
+  background: transparent;
+  color: var(--fg);
+  border-color: var(--border);
+}
+
+.btn-validate:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+
+.btn-validate.checking {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.btn-connect {
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn-connect:hover {
+  background: var(--accent-hover);
+  filter: brightness(1.05);
+}
+
+.btn-connect:disabled {
+  background: var(--border);
+  color: var(--fg-muted);
+  cursor: not-allowed;
+}
+
+.validation-msg {
+  font-size: 12px;
+  min-height: 16px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.validation-msg.ok {
+  color: var(--ok);
+}
+
+.validation-msg.err {
+  color: var(--error);
+}
+
+.validation-msg .spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.connect-footer-link {
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+
+.connect-footer-link a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.connect-footer-link a:hover {
+  text-decoration: underline;
+}
+
+
+/* ===========================================================================
+   Autonomy mode toggle ("Ask before acting" / "Act without asking")
+   =========================================================================== */
+
+#autonomy-btn.autonomy {
+  position: relative;
+}
+
+/* "auto" mode turns the shield gold to signal elevated risk. */
+#autonomy-btn.autonomy[data-mode="auto"] {
+  color: var(--warn);
+  background: rgba(212, 160, 23, 0.12);
+}
+
+#autonomy-btn.autonomy[data-mode="auto"]:hover {
+  background: rgba(212, 160, 23, 0.18);
+}
+
+/* Mode chip shown under the composer when not idle -- mirrors the reference's
+   inline mode selector. */
+.mode-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 0 2px;
+  font-size: 11.5px;
+  color: var(--fg-secondary);
+}
+
+.mode-bar .mode-label {
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 10px;
+}
+
+.mode-bar .mode-switch {
+  display: inline-flex;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-pill);
+  padding: 2px;
+  gap: 2px;
+}
+
+.mode-bar .mode-switch button {
+  background: transparent;
+  border: none;
+  color: var(--fg-secondary);
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.mode-bar .mode-switch button.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.mode-bar .mode-switch button.active.warn {
+  background: var(--warn);
+}
+
+.mode-bar .mode-switch button:hover:not(.active) {
+  color: var(--fg);
+}
+
+
+/* ===========================================================================
+   Memory overlay (what the agent has learned about the user)
+   =========================================================================== */
+
+/* Dim the brain icon when there's nothing stored yet. */
+#memory-btn[data-empty="true"] {
+  color: var(--fg-muted);
+}
+
+.memory-card {
+  max-width: 480px;
+}
+
+.memory-blurb {
+  margin: 0;
+  padding: 12px 16px 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--fg-secondary);
+}
+
+.memory-list {
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.memory-empty {
+  padding: 20px 8px;
+  text-align: center;
+  color: var(--fg-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.memory-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.memory-group-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--fg-muted);
+}
+
+.memory-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.memory-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  padding: 6px 8px;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.memory-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.memory-select {
+  flex: 0 0 96px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  padding: 6px 4px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.memory-row-del {
+  flex: 0 0 28px;
+  height: 28px;
+  color: var(--fg-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 0.15s, background-color 0.15s, border-color 0.15s;
+}
+
+.memory-row-del:hover {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.memory-add {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px 12px;
+}
+
+.memory-add .memory-input {
+  flex: 1;
+}
+
+.memory-add .memory-select {
+  flex: 0 0 96px;
+}
+
+.memory-add-btn {
+  flex: 0 0 auto;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.memory-add-btn:hover {
+  background: var(--accent-hover);
+}
+
+.memory-foot {
+  padding: 0 16px 14px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.memory-clear {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--fg-secondary);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.memory-clear:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Export conversation button (debug): dim when there's nothing to export. */
+#export-btn[data-empty="true"] {
+  color: var(--fg-muted);
+}

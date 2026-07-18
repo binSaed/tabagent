@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build artifacts
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+.cache/
+
+# Editor
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+
+# Local agent/editor tooling
+.zcode/
+.crush/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Secrets / keys (safety net)
+*.pem
+*.key
+secrets.json
+credentials.json
+
+# Coverage
+coverage/
+*.lcov
+
+# Extension build outputs
+apps/extension/dist/
+apps/extension/build/
+
+# Generated
+*.generated.ts

@@ -1,0 +1,16 @@
+/* Container reset for the selection-menu host element.
+   The visible menu lives inside a Shadow DOM (in selection.ts) so it is fully
+   isolated from page CSS. This file only neutralizes the host element itself,
+   which Chrome injects the .css for before the .js runs -- without this, the
+   host could briefly inherit page layout styles.
+   Host is pointer-events:none so it never blocks page clicks when hidden; the
+   menu box inside the shadow DOM re-enables pointer events on itself. */
+#__ai-agent-selection-root__ {
+  all: initial;
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: none;
+  z-index: 2147483647;
+  pointer-events: none;
+}

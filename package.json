@@ -1,0 +1,18 @@
+{
+  "name": "tabagent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Universal AI Browser Agent Chrome Extension (MV3) with Z.AI coding-plan support",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "node build.mjs",
+    "clean": "rm -rf dist"
+  },
+  "license": "MIT",
+  "type": "module",
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "typescript": "^5.7.0",
+    "@types/chrome": "^0.0.287"
+  }
+}
