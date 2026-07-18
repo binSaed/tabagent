@@ -7,7 +7,12 @@ export interface Manifest {
   description?: string;
   minimum_chrome_version?: string;
   background: { service_worker: string };
-  action: { default_title?: string; default_popup: string };
+  action: {
+    default_title?: string;
+    default_popup: string;
+    default_icon?: Record<string, string>;
+  };
+  icons?: Record<string, string>;
   side_panel: { default_path: string };
   permissions: string[];
   optional_permissions?: string[];
