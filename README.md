@@ -6,6 +6,22 @@ A Manifest V3 Chrome extension that turns the active tab into an AI-driven agent
 
 This is a working vertical slice implementing the agent-loop-and-survival layer. It is not the full platform yet (see "What's stubbed" below).
 
+## Download
+
+Grab a ready-to-load build from GitHub — no need to build from source.
+
+1. Go to the **[Actions](../../actions)** tab → **Build Extension** workflow.
+2. Open the latest successful run (top of the list).
+3. Scroll down to **Artifacts** and download **TabAgent** (a `TabAgent.zip`).
+4. Unzip it. Then in Chrome:
+   1. Open `chrome://extensions`
+   2. Enable **Developer mode** (top-right)
+   3. **Load unpacked** → select the unzipped folder
+
+Requires Chrome 120+. Prefer building from source? See [Load the extension](#load-the-extension) below.
+
+> Note: workflow artifacts expire after 90 days. If the latest run is too old, open it and click **Re-run workflow**, or build from source.
+
 ## Demo
 
 https://github.com/user-attachments/assets/2adfd956-d6e8-4b5c-893d-dc04f92abe66

@@ -256,7 +256,7 @@ export const OPENROUTER_PROVIDER: ProviderDefinition = {
   authFields: [
     { key: "apiKey", label: "OpenRouter API Key", type: "password", required: true },
   ],
-  extraHeaders: { "HTTP-Referer": "https://github.com", "X-Title": "AI Browser Agent" },
+  extraHeaders: { "HTTP-Referer": "https://github.com", "X-Title": "TabAgent" },
   defaultLargeModelId: "anthropic/claude-3.5-sonnet",
   models: [], // fully dynamic via /models
   docsUrl: "https://openrouter.ai/docs",

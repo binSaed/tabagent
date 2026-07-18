@@ -7,7 +7,7 @@ import type { Manifest } from "./manifest-type";
 
 const manifest: Manifest = {
   manifest_version: 3,
-  name: "AI Browser Agent",
+  name: "TabAgent",
   version: "0.1.0",
   description:
     "Universal AI browser agent. Connect any OpenAI-compatible provider (Z.AI coding plan, OpenAI, OpenRouter, Ollama, ...) and let the AI drive the active tab.",
@@ -15,7 +15,7 @@ const manifest: Manifest = {
   // MV3 SW. type: "module" would also work; classic is used to keep the build simple.
   background: { service_worker: "background.js" },
   action: {
-    default_title: "Open AI Browser Agent",
+    default_title: "Open TabAgent",
     default_popup: "popup.html",
   },
   side_panel: { default_path: "panel.html" },
