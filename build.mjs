@@ -1,8 +1,9 @@
 // esbuild bundler for the MV3 extension.
 // Three TS entrypoints -> three JS bundles; HTML + manifest copied as static assets.
 import * as esbuild from "esbuild";
-import { cpSync, mkdirSync, rmSync, writeFileSync, existsSync } from "node:fs";
+import { cpSync, mkdirSync, rmSync, writeFileSync, existsSync, unlinkSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const ROOT = process.cwd();
 const SRC = join(ROOT, "src");
@@ -75,8 +76,21 @@ try {
     )
   );
 
-  // Manifest is generated so the package version stays in sync.
-  const manifest = (await import(join(ROOT, "src/manifest.ts"), { with: { type: "json" } })).default;
+  // Manifest is generated so the package version stays in sync. esbuild
+  // transforms manifest.ts -> JS first, so the build works on any Node >= 18
+  // (native dynamic import() of .ts only exists on Node 23.6+, which CI and
+  // many local setups don't have).
+  const manifestTmp = join(DIST, ".manifest.mjs");
+  await esbuild.build({
+    bundle: true,
+    platform: "node",
+    format: "esm",
+    entryPoints: [join(SRC, "manifest.ts")],
+    outfile: manifestTmp,
+    logLevel: "silent",
+  });
+  const manifest = (await import(pathToFileURL(manifestTmp).href)).default;
+  unlinkSync(manifestTmp);
   writeFileSync(join(DIST, "manifest.json"), JSON.stringify(manifest, null, 2));
 
   copyStatic();
