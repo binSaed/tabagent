@@ -263,6 +263,195 @@ export const OPENROUTER_PROVIDER: ProviderDefinition = {
 };
 
 // ---------------------------------------------------------------------------
+// DeepSeek (api.deepseek.com)
+// Config sourced from crush's catwalk catalog (internal/providers/configs/deepseek.json).
+// ---------------------------------------------------------------------------
+
+export const DEEPSEEK_PROVIDER: ProviderDefinition = {
+  id: "deepseek",
+  name: "DeepSeek",
+  shortName: "DeepSeek",
+  icon: "D",
+  brandColor: "#4d6bfe",
+  type: "openai-compat",
+  baseURL: "https://api.deepseek.com/v1",
+  modelsEndpoint: "https://api.deepseek.com/v1/models",
+  authFields: [
+    { key: "apiKey", label: "DeepSeek API Key", type: "password", required: true },
+  ],
+  defaultLargeModelId: "deepseek-v4-pro",
+  defaultSmallModelId: "deepseek-v4-flash",
+  models: [], // fully dynamic via /models
+  docsUrl: "https://api-docs.deepseek.com",
+};
+
+// ---------------------------------------------------------------------------
+// Groq (api.groq.com) -- fast inference for Llama / Mixtral / Kimi / etc.
+// Config sourced from crush's catwalk catalog (internal/providers/configs/groq.json).
+// Note the base URL includes /openai (not just /v1).
+// ---------------------------------------------------------------------------
+
+export const GROQ_PROVIDER: ProviderDefinition = {
+  id: "groq",
+  name: "Groq",
+  shortName: "Groq",
+  icon: "⚡",
+  brandColor: "#f55036",
+  type: "openai-compat",
+  baseURL: "https://api.groq.com/openai/v1",
+  modelsEndpoint: "https://api.groq.com/openai/v1/models",
+  authFields: [
+    { key: "apiKey", label: "Groq API Key", type: "password", required: true },
+  ],
+  defaultLargeModelId: "moonshotai/kimi-k2-instruct-0905",
+  defaultSmallModelId: "qwen/qwen3-32b",
+  models: [], // fully dynamic via /models
+  docsUrl: "https://console.groq.com/docs",
+};
+
+// ---------------------------------------------------------------------------
+// xAI / Grok (api.x.ai)
+// Config sourced from crush's catwalk catalog (internal/providers/configs/xai.json).
+// ---------------------------------------------------------------------------
+
+export const XAI_PROVIDER: ProviderDefinition = {
+  id: "xai",
+  name: "xAI (Grok)",
+  shortName: "xAI",
+  icon: "𝕏",
+  brandColor: "#1d1d1f",
+  type: "openai-compat",
+  baseURL: "https://api.x.ai/v1",
+  modelsEndpoint: "https://api.x.ai/v1/models",
+  authFields: [
+    { key: "apiKey", label: "xAI API Key", type: "password", required: true },
+  ],
+  defaultLargeModelId: "grok-4.5",
+  defaultSmallModelId: "grok-4.5",
+  models: [], // fully dynamic via /models
+  docsUrl: "https://docs.x.ai",
+};
+
+// ---------------------------------------------------------------------------
+// Mistral (api.mistral.ai)
+// Not in crush's catalog; standard public OpenAI-compatible config.
+// ---------------------------------------------------------------------------
+
+export const MISTRAL_PROVIDER: ProviderDefinition = {
+  id: "mistral",
+  name: "Mistral",
+  shortName: "Mistral",
+  icon: "M",
+  brandColor: "#ff7000",
+  type: "openai-compat",
+  baseURL: "https://api.mistral.ai/v1",
+  modelsEndpoint: "https://api.mistral.ai/v1/models",
+  authFields: [
+    { key: "apiKey", label: "Mistral API Key", type: "password", required: true },
+  ],
+  defaultLargeModelId: "mistral-large-latest",
+  defaultSmallModelId: "mistral-small-latest",
+  models: [], // fully dynamic via /models
+  docsUrl: "https://docs.mistral.ai",
+};
+
+// ---------------------------------------------------------------------------
+// Fireworks (api.fireworks.ai) -- serverless inference for Llama / Qwen / GLM / etc.
+// Config sourced from crush's catwalk catalog (internal/providers/configs/fireworks.json).
+// ---------------------------------------------------------------------------
+
+export const FIREWORKS_PROVIDER: ProviderDefinition = {
+  id: "fireworks",
+  name: "Fireworks AI",
+  shortName: "Fireworks",
+  icon: "✷",
+  brandColor: "#5b3df5",
+  type: "openai-compat",
+  baseURL: "https://api.fireworks.ai/inference/v1",
+  modelsEndpoint: "https://api.fireworks.ai/inference/v1/models",
+  authFields: [
+    { key: "apiKey", label: "Fireworks API Key", type: "password", required: true },
+  ],
+  defaultLargeModelId: "accounts/fireworks/models/deepseek-v4-pro",
+  defaultSmallModelId: "accounts/fireworks/models/deepseek-v4-flash",
+  models: [], // fully dynamic via /models
+  docsUrl: "https://docs.fireworks.ai",
+};
+
+// ---------------------------------------------------------------------------
+// Cerebras (api.cerebras.ai) -- fastest inference for Llama / Qwen / GLM.
+// Config sourced from crush's catwalk catalog (internal/providers/configs/cerebras.json).
+// ---------------------------------------------------------------------------
+
+export const CEREBRAS_PROVIDER: ProviderDefinition = {
+  id: "cerebras",
+  name: "Cerebras",
+  shortName: "Cerebras",
+  icon: "C",
+  brandColor: "#e1467f",
+  type: "openai-compat",
+  baseURL: "https://api.cerebras.ai/v1",
+  modelsEndpoint: "https://api.cerebras.ai/v1/models",
+  authFields: [
+    { key: "apiKey", label: "Cerebras API Key", type: "password", required: true },
+  ],
+  defaultLargeModelId: "gpt-oss-120b",
+  defaultSmallModelId: "zai-glm-4.7",
+  models: [], // fully dynamic via /models
+  docsUrl: "https://docs.cerebras.ai",
+};
+
+// ---------------------------------------------------------------------------
+// Moonshot / Kimi (api.moonshot.ai) -- Kimi coding models.
+// Config sourced from crush's catwalk catalog (internal/providers/configs/moonshot.json).
+// (The Anthropic-format kimi.com/coding endpoint is separate and not implemented here.)
+// ---------------------------------------------------------------------------
+
+export const MOONSHOT_PROVIDER: ProviderDefinition = {
+  id: "moonshot",
+  name: "Moonshot (Kimi)",
+  shortName: "Moonshot",
+  icon: "M",
+  brandColor: "#16181d",
+  type: "openai-compat",
+  baseURL: "https://api.moonshot.ai/v1",
+  modelsEndpoint: "https://api.moonshot.ai/v1/models",
+  authFields: [
+    { key: "apiKey", label: "Moonshot API Key", type: "password", required: true },
+  ],
+  defaultLargeModelId: "kimi-k2.7-code",
+  defaultSmallModelId: "kimi-k2.5",
+  models: [], // fully dynamic via /models
+  docsUrl: "https://platform.moonshot.ai/docs",
+};
+
+// ---------------------------------------------------------------------------
+// Hugging Face router (router.huggingface.co) -- routes to many backends.
+// Config sourced from crush's catwalk catalog (internal/providers/configs/huggingface.json).
+// Note: model IDs use a "provider/slug:backend" convention (e.g. ":fireworks-ai").
+// ---------------------------------------------------------------------------
+
+export const HUGGINGFACE_PROVIDER: ProviderDefinition = {
+  id: "huggingface",
+  name: "Hugging Face",
+  shortName: "HF",
+  icon: "🤗",
+  brandColor: "#ffcc4d",
+  type: "openai-compat",
+  baseURL: "https://router.huggingface.co/v1",
+  modelsEndpoint: "https://router.huggingface.co/v1/models",
+  authFields: [
+    { key: "apiKey", label: "HF Token", type: "password", required: true },
+  ],
+  // OpenRouter-style attribution headers; localized to TabAgent (see OPENROUTER_PROVIDER).
+  extraHeaders: { "HTTP-Referer": "https://github.com", "X-Title": "TabAgent" },
+  defaultLargeModelId: "zai-org/GLM-5.2:fireworks-ai",
+  defaultSmallModelId: "deepseek-ai/DeepSeek-V4-Flash:fireworks-ai",
+  models: [], // fully dynamic via /models
+  docsUrl: "https://huggingface.co/docs/inference-providers",
+};
+
+// ---------------------------------------------------------------------------
 // Custom OpenAI-compatible (user supplies baseURL + key; Ollama / LM Studio / etc.)
 // ---------------------------------------------------------------------------
 
@@ -325,6 +514,14 @@ export const BUILTIN_PROVIDERS: ProviderDefinition[] = [
   ZHIPU_PROVIDER,
   OPENAI_PROVIDER,
   OPENROUTER_PROVIDER,
+  DEEPSEEK_PROVIDER,
+  GROQ_PROVIDER,
+  XAI_PROVIDER,
+  MISTRAL_PROVIDER,
+  FIREWORKS_PROVIDER,
+  CEREBRAS_PROVIDER,
+  MOONSHOT_PROVIDER,
+  HUGGINGFACE_PROVIDER,
   CUSTOM_OPENAI_COMPAT,
   ANTHROPIC_PROVIDER,
 ];

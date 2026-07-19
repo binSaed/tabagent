@@ -20,7 +20,7 @@ https://github.com/user-attachments/assets/2adfd956-d6e8-4b5c-893d-dc04f92abe66
 
 ## Features
 
-- **Any OpenAI-compatible provider** — Z.AI, Zhipu/BigModel, OpenAI, OpenRouter, or any custom endpoint (Ollama, LM Studio, Groq, DeepSeek, …) through a single adapter
+- **Any OpenAI-compatible provider** — Z.AI, Zhipu/BigModel, OpenAI, OpenRouter, DeepSeek, Groq, xAI (Grok), Mistral, Fireworks, Cerebras, Moonshot (Kimi), Hugging Face, or any custom endpoint (Ollama, LM Studio, …) through a single adapter
 - **11 CDP browser tools** — snapshot, click, type, scroll, hover, key presses, screenshots, text extraction, and more (see [Browser tools](#browser-tools))
 - **Resumable agent loop** — a checkpointed state machine (up to 200 steps) that survives service-worker death and crashes mid-run
 - **Plan approval** — the agent can propose a step-by-step plan; you approve or reject it, then watch steps tick off live in the panel
@@ -92,7 +92,15 @@ No passphrase, no setup wizard.
 | **Zhipu / BigModel** | `open.bigmodel.cn/api/paas/v4` | Same GLM family, separate key |
 | **OpenAI** | `api.openai.com/v1` | Pre-seeded models |
 | **OpenRouter** | `openrouter.ai/api/v1` | Fully dynamic model list |
-| **Custom (OpenAI-compatible)** | any base URL | Ollama, LM Studio, Groq, DeepSeek, Together, xAI, Fireworks, … — dynamic `GET /models` discovery |
+| **DeepSeek** | `api.deepseek.com/v1` | Dynamic model list |
+| **Groq** | `api.groq.com/openai/v1` | Dynamic model list |
+| **xAI (Grok)** | `api.x.ai/v1` | Dynamic model list |
+| **Mistral** | `api.mistral.ai/v1` | Dynamic model list |
+| **Fireworks AI** | `api.fireworks.ai/inference/v1` | Dynamic model list |
+| **Cerebras** | `api.cerebras.ai/v1` | Dynamic model list |
+| **Moonshot (Kimi)** | `api.moonshot.ai/v1` | Dynamic model list |
+| **Hugging Face** | `router.huggingface.co/v1` | Dynamic model list |
+| **Custom (OpenAI-compatible)** | any base URL | Ollama, LM Studio, Together, Fireworks, … — dynamic `GET /models` discovery |
 
 Z.AI's API quirks are handled automatically: `tool_stream: true` is injected into chat requests, `thinking: { type: "enabled" | "disabled" }` is set for reasoning models, and the `/models` health check tolerates `401` (Z.AI scopes that endpoint differently from chat).
 
