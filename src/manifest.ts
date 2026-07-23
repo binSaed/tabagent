@@ -8,7 +8,7 @@ import type { Manifest } from "./manifest-type";
 const manifest: Manifest = {
   manifest_version: 3,
   name: "TabAgent",
-  version: "0.1.1",
+  version: "0.1.2",
   description:
     "Universal AI browser agent. Connect any OpenAI-compatible provider (Z.AI coding plan, OpenAI, OpenRouter, Ollama, ...) and let the AI drive the active tab.",
   minimum_chrome_version: "120",
