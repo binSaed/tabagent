@@ -366,25 +366,36 @@ class ClickTool implements AnnotatedTool {
     // point before dispatching. In virtualized menus/overlays the element's
     // rect can be read correctly but a DIFFERENT element renders at that point
     // by the time we click (click-coordinate desync), so the click silently
-    // hits the wrong item. If the guard fails, settle (wait for repaint),
-    // re-resolve, and re-check ONCE. If it still fails, surface a precise
-    // error so the caller re-snapshots rather than mis-selecting.
+    // hits the wrong item. We guard twice:
+    //   (1) pointHitsTarget: the element under the point must BE the target
+    //       (or an ancestor/descendant of it) -- catches positional drift.
+    //   (2) pointLabelsMatch: the element under the point must have the SAME
+    //       accessible name as the target -- catches content-drift, where a
+    //       virtualized slot is recycled to render a different item while the
+    //       registered node itself hasn't moved (e.g. the language dropdown
+    //       showing a different language at the same coordinate).
+    // On either failure: settle (wait for repaint), re-resolve, re-check once.
+    // If it still fails, surface a precise error so the caller re-snapshots
+    // rather than mis-selecting.
     let box = await resolveCenter(ctx, ref);
     if ("error" in box) return err(call, box.error);
     let hits = await pointHitsTarget(ctx, ref, box.cx, box.cy);
-    if (!hits) {
+    let labelsOk = hits ? await pointLabelsMatch(ctx, ref, box.cx, box.cy) : false;
+    if (!hits || !labelsOk) {
       await waitForRepaint(ctx);
       box = await resolveCenter(ctx, ref);
       if ("error" in box) return err(call, box.error);
       hits = await pointHitsTarget(ctx, ref, box.cx, box.cy);
+      labelsOk = hits ? await pointLabelsMatch(ctx, ref, box.cx, box.cy) : false;
     }
-    if (!hits) {
+    if (!hits || !labelsOk) {
       return err(
         call,
-        `ref "${ref}" is not under its resolved click point (the page likely ` +
-          `re-rendered after scroll, e.g. a virtualized menu). The click would hit ` +
-          `the wrong element, so it was aborted. Call snapshot() to get fresh refs, ` +
-          `then retry.`,
+        `ref "${ref}" drifted before the click: the element under its resolved ` +
+          `click point is not the intended target (the page re-rendered after ` +
+          `scroll, e.g. a virtualized menu whose items recycled). The click would ` +
+          `hit the wrong element, so it was aborted. Call snapshot() to get fresh ` +
+          `refs, then retry.`,
       );
     }
 
@@ -458,44 +469,60 @@ class TypeTool implements AnnotatedTool {
     if (!focused.ok) return err(call, focused.error);
 
     try {
-      // Enter multi-line text correctly. Two prior failure modes this fixes:
-      //  (a) Sending '\n' as a "char" key event does NOT insert a newline in a
-      //      <textarea>/contenteditable -- it gets dropped, so multi-paragraph
-      //      text collapsed into one line (e.g. "experience.Happy learning!").
-      //  (b) Input.insertText cannot represent a newline either.
-      // So we split the text on newlines: emit each run via insertText (which
-      // reliably lands in inputs/textareas/editables), and translate each '\n'
-      // into a real Enter key press. Falls back to per-char "char" events only
-      // if insertText is rejected by the target.
-      const runs = text.split("\n");
-      let usedInsertText = false;
-      for (let i = 0; i < runs.length; i++) {
-        if (i > 0) {
-          await ctx.cdp("Input.dispatchKeyEvent", { type: "rawKeyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
-          await ctx.cdp("Input.dispatchKeyEvent", { type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
-        }
-        const run = runs[i];
-        if (run.length === 0) continue;
-        try {
-          await ctx.cdp("Input.insertText", { text: run });
-          usedInsertText = true;
-        } catch {
-          // Some targets (e.g. plain contenteditable) reject insertText;
-          // fall back to char-by-char dispatch for this run.
-          for (const ch of run) {
-            await ctx.cdp("Input.dispatchKeyEvent", { type: "char", text: ch });
+      // Prefer the NATIVE VALUE SETTER for <input>/<textarea>. This is the
+      // reliable way to enter text that contains newlines into React/Vue/etc.
+      // controlled components: assigning el.value = text directly often gets
+      // reverted by the framework's reconciliation, but going through the
+      // prototype descriptor setter (the trick Playwright uses) bypasses the
+      // framework's value tracker so the subsequent `input` event sticks, and
+      // it preserves literal '\n' characters (which keystroke-based typing
+      // routinely loses in rich editors -- the failure that corrupted every
+      // entry in a prior run, collapsing two paragraphs into one line).
+      const setRes = await setValueNative(ctx, ref, text);
+      if (!setRes.ok) {
+        // Not a value-bearing control (e.g. contenteditable). Fall back to
+        // keystroke dispatch, splitting on '\n' and translating each newline
+        // into a real Enter press so multi-line text keeps its breaks.
+        const runs = text.split("\n");
+        for (let i = 0; i < runs.length; i++) {
+          if (i > 0) {
+            await ctx.cdp("Input.dispatchKeyEvent", { type: "rawKeyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
+            await ctx.cdp("Input.dispatchKeyEvent", { type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
+          }
+          const run = runs[i];
+          if (run.length === 0) continue;
+          try {
+            await ctx.cdp("Input.insertText", { text: run });
+          } catch {
+            for (const ch of run) {
+              await ctx.cdp("Input.dispatchKeyEvent", { type: "char", text: ch });
+            }
           }
         }
       }
-      // If the very first insertText failed and we never succeeded, we may have
-      // silently emitted nothing -- the per-char fallback inside the loop
-      // already covered it, so no extra action is needed here.
-      void usedInsertText;
       if (submit) {
         await ctx.cdp("Input.dispatchKeyEvent", { type: "rawKeyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
         await ctx.cdp("Input.dispatchKeyEvent", { type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
       }
-      return ok(call, `typed ${text.length} chars into ${ref}${submit ? " + Enter" : ""}`);
+
+      // VERIFY: re-read the field value. If the text contained newlines but
+      // the field does not, the multi-line content was lost (the exact failure
+      // that previously corrupted release notes). Surface a WARNING so the
+      // model can recover instead of asserting success on a malformed entry.
+      const wantNewlines = text.includes("\n");
+      const got = await readValue(ctx, ref);
+      const newlineLost = wantNewlines && typeof got === "string" && !got.includes("\n");
+      let content = `typed ${text.length} chars into ${ref}${submit ? " + Enter" : ""}`;
+      if (newlineLost) {
+        content +=
+          `\nWARNING: the text contained line breaks but the field value now ` +
+          `has none ("${got.replace(/\s+/g, " ").slice(0, 80)}..."). Multi-line ` +
+          `content was NOT preserved. Try clearFirst:false and re-type, or split ` +
+          `the entry into separate fields. Do NOT report this step as complete.`;
+      } else if (typeof got === "string" && got.trim() && !textEndsWith(got, text)) {
+        content += `\nWARNING: the field value does not match the text you typed. Verify before continuing.`;
+      }
+      return ok(call, content);
     } catch (e) {
       return err(call, `type failed: ${(e as Error).message}`);
     }
@@ -1042,6 +1069,59 @@ async function pointHitsTarget(
 }
 
 /**
+ * Catch CONTENT-DRIFT in virtualized menus: a position check (pointHitsTarget)
+ * passes when the registered node is still physically under the point, but in a
+ * virtualized list the SAME DOM slot can be recycled to render a different item
+ * (e.g. the language dropdown's row at Y=522 shows "English (U.S.)" when the ref
+ * is captured, then "Italian" by click time). This compares the accessible name
+ * of the element actually under the point with the target element's own name;
+ * a mismatch means the slot now represents a different item, so the click would
+ * land on the wrong target.
+ *
+ * Returns true when names match OR when the point element is a descendant/
+ * wrapper of the target (icons/labels inside a menuitem). Returns false on a
+ * genuine name mismatch.
+ */
+async function pointLabelsMatch(
+  ctx: ToolContext,
+  ref: string,
+  cx: number,
+  cy: number,
+): Promise<boolean> {
+  const js = String.raw`
+(function (ref, x, y) {
+  function nameOf(el) {
+    if (!el || !el.getAttribute) return "";
+    var a = el.getAttribute("aria-label");
+    if (a && a.trim()) return a.trim();
+    var lb = el.getAttribute("aria-labelledby");
+    if (lb) { var t = document.getElementById(lb); if (t) return (t.textContent||"").trim(); }
+    return (el.textContent || "").replace(/\s+/g, " ").trim();
+  }
+  var w = window.__agentRefMap && window.__agentRefMap[ref];
+  if (!w) return true; // can't check; don't block
+  var el = w.deref();
+  if (!el || !document.contains(el)) return true;
+  var hit = document.elementFromPoint(x, y);
+  if (!hit) return true;
+  // If the point element is the target or nested within it, names are irrelevant.
+  if (hit === el || el.contains(hit) || hit.contains(el)) return true;
+  var a = nameOf(el), b = nameOf(hit);
+  if (!a || !b) return true; // no name to compare; don't block
+  return a === b;
+})`;
+  try {
+    const res = await ctx.cdp<{ result: { value: boolean } }>("Runtime.evaluate", {
+      expression: `${js}(${JSON.stringify(ref)}, ${JSON.stringify(cx)}, ${JSON.stringify(cy)})`,
+      returnByValue: true,
+    });
+    return Boolean(res?.result?.value);
+  } catch {
+    return true; // can't check; don't block
+  }
+}
+
+/**
  * Wait one animation frame + a short macrotask delay so async overlays
  * (virtualized lists, portals) can finish rendering after a scroll. Returns
  * via CDP by evaluating a promise on the page; capped at ~400ms.
@@ -1105,6 +1185,90 @@ async function focusByRef(
   } catch (e) {
     return { ok: false, error: `could not focus ref "${ref}": ${(e as Error).message}` };
   }
+}
+
+/**
+ * Set the value of an <input>/<textarea> via the NATIVE prototype descriptor
+ * setter, then dispatch `input` (and `change` for <input>). This is the
+ * Playwright technique: bypassing the element's own value setter defeats
+ * React/Vue's controlled-component reconciliation, which would otherwise
+ * revert a direct `el.value = ...` assignment on the next render. Critically
+ * it also preserves literal '\n' characters, which keystroke-based typing
+ * loses in many rich editors.
+ *
+ * Returns { ok: false } (not an error) when the element is not a value-bearing
+ * control, so the caller can fall back to keystroke dispatch.
+ */
+async function setValueNative(
+  ctx: ToolContext,
+  ref: string,
+  text: string,
+): Promise<{ ok: true } | { ok: false }> {
+  const js = String.raw`
+(function (ref, text) {
+  var w = window.__agentRefMap && window.__agentRefMap[ref];
+  if (!w) return { ok: false };
+  var el = w.deref();
+  if (!el || !document.contains(el)) {
+    if (window.__agentRefMap) delete window.__agentRefMap[ref];
+    return { ok: false };
+  }
+  var tag = el.tagName;
+  if (tag !== "INPUT" && tag !== "TEXTAREA") return { ok: false };
+  // Use the prototype descriptor setter to bypass framework value trackers.
+  var proto = tag === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+  var desc = Object.getOwnPropertyDescriptor(proto, "value");
+  if (desc && desc.set) {
+    desc.set.call(el, text);
+  } else {
+    el.value = text;
+  }
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+  el.dispatchEvent(new Event("change", { bubbles: true }));
+  return { ok: true };
+})`;
+  try {
+    const res = await ctx.cdp<{ result: { value: { ok: boolean } } }>("Runtime.evaluate", {
+      expression: `${js}(${JSON.stringify(ref)}, ${JSON.stringify(text)})`,
+      returnByValue: true,
+    });
+    return res?.result?.value?.ok ? { ok: true } : { ok: false };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/**
+ * Read the current value/text of the element identified by `ref`. For
+ * <input>/<textarea> returns `.value`; for contenteditable returns the inner
+ * text; returns null if the element is gone. Used for post-type verification.
+ */
+async function readValue(ctx: ToolContext, ref: string): Promise<string | null> {
+  const js = String.raw`
+(function (ref) {
+  var w = window.__agentRefMap && window.__agentRefMap[ref];
+  if (!w) return null;
+  var el = w.deref();
+  if (!el || !document.contains(el)) return null;
+  if (el.value !== undefined && el.value !== null) return el.value;
+  if (el.isContentEditable) return (el.innerText || el.textContent || "");
+  return null;
+})`;
+  try {
+    const res = await ctx.cdp<{ result: { value: string | null } }>("Runtime.evaluate", {
+      expression: `${js}(${JSON.stringify(ref)})`,
+      returnByValue: true,
+    });
+    return res?.result?.value ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** True if `value` ends with `text` (ignoring leading/trailing whitespace on
+ *  `value`, which frameworks sometimes pad). Used by the post-type check. */
+function textEndsWith(value: string, text: string): boolean {
+  return value.trimEnd().endsWith(text.trimEnd());
 }
 
 /**

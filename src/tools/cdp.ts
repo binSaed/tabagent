@@ -26,6 +26,15 @@ const ATTACH_TARGET = (tabId: number) => ({ tabId });
 const CDP_COMMAND_TIMEOUT_MS = 20_000;
 /** Attach timeout (ms). DevTools being open or a crashed renderer must surface. */
 const CDP_ATTACH_TIMEOUT_MS = 8_000;
+/** After this many CONSECUTIVE per-command timeouts on one tab, we treat the
+ *  renderer as frozen and escalate the error to ask for a reload/restart,
+ *  rather than letting every following command pile up its own 20s timeout. */
+const CDP_FREEZE_THRESHOLD = 3;
+
+/** tabId -> count of consecutive command timeouts. Reset to 0 on any success.
+ *  Used to detect a frozen/hung renderer (which previously caused a cascade of
+ *  timeouts that silently ended the agent run). */
+const consecutiveTimeouts = new Map<number, number>();
 
 export interface CdpAttached {
   tabId: number;
@@ -147,9 +156,16 @@ async function sendCommandOnce<T>(
     const timer = setTimeout(() => {
       if (done) return;
       done = true;
+      const count = (consecutiveTimeouts.get(tabId) ?? 0) + 1;
+      consecutiveTimeouts.set(tabId, count);
+      const frozen = count >= CDP_FREEZE_THRESHOLD;
       reject(
         new Error(
-          `CDP sendCommand "${method}" timed out after ${CDP_COMMAND_TIMEOUT_MS}ms on tab ${tabId}. The renderer may be frozen or unresponsive.`,
+          `CDP sendCommand "${method}" timed out after ${CDP_COMMAND_TIMEOUT_MS}ms on tab ${tabId}. ` +
+            (frozen
+              ? `The renderer appears FROZEN (${count} consecutive timeouts). ` +
+                `Reload the tab (or close & reopen it) and start a fresh session -- further commands on this tab will keep timing out.`
+              : `The renderer may be frozen or unresponsive.`),
         ),
       );
     }, CDP_COMMAND_TIMEOUT_MS);
@@ -157,6 +173,7 @@ async function sendCommandOnce<T>(
       if (done) return;
       done = true;
       clearTimeout(timer);
+      consecutiveTimeouts.delete(tabId); // a reply arrived: renderer is alive
       const le = chrome.runtime.lastError;
       if (le) reject(new Error(le.message));
       else resolve(result as T);
