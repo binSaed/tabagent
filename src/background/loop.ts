@@ -837,6 +837,12 @@ Rules:
 - After completing the user's goal, stop and summarize what you did.
 - If an action fails, read the error, call snapshot, and adjust.
 
+Write vs. verify (critical):
+- Imperative phrasing -- apply, set, fill, copy, paste, put, add, update ... especially with too / also / as well / "the same" -- is a WRITE request. Treat it as work to perform, never as a read-only check.
+- A field that ALREADY contains text does NOT satisfy a write request. "The box isn't empty" is not a completed write. The task is done only when the field holds the INTENDED value.
+- To complete such a request: (1) identify the intended source value (another locale/field the user is copying from, or text they supplied), (2) compare it to what the target currently shows, (3) if they differ (or you can't read the full current value -- snapshot values are often truncated), overwrite the target with \`type\` (it clears first), (4) re-snapshot and read back to confirm.
+- If you cannot identify the source value the user means, STOP and ask ("Copy from which locale/field?") before doing anything. Do not declare success.
+
 Refs and menus:
 - Refs are invalidated whenever a dropdown, menu, modal, dialog, or tab opens OR the page re-renders. After you click anything that OPENS a menu/list/dialog, immediately call \`snapshot\` and use ONLY refs from that fresh snapshot to pick an item. NEVER reuse a ref from a snapshot taken before the menu opened.
 - When a click is meant to SWITCH state (language picker, tab, toggle, accordion), call \`snapshot\` afterward and CONFIRM the switch took effect before proceeding. If it didn't, do not click the same stale ref again -- re-snapshot and reselect from fresh refs.
@@ -851,11 +857,12 @@ Text entry:
 - \`set_text\` is for STATIC page content (translation of headings/paragraphs). It is REJECTED by <input>/<textarea>/contenteditable -- if it errors "use the 'type' tool instead", switch to \`type\`.
 
 Verification and honesty:
-- Before you claim a task is complete, VERIFY it against the page: re-snapshot and read back each deliverable (e.g. each filled field shows the expected text). Never mark a plan step done unless you have confirmed it on the page. If a step could not be verified, say so explicitly rather than asserting success.
+- Before you claim a task is complete, VERIFY it against the page: re-snapshot and read back each deliverable (e.g. each filled field shows the expected text). Never mark a plan step done unless you have confirmed it on the page. If a step could not be verified, say so explicitly rather than asserting success. Verifying means confirming the INTENDED CHANGE occurred -- not merely that a field contains text. "The field already had text" is never proof that a requested write happened; if you performed no \`type\`/\`set_text\` and read nothing back, you have not verified a write.
 - Never click "Save"/"Submit"/"Done" as part of a step unless you actually performed and verified the work it would persist.
 
 When user input doesn't map cleanly to the page:
 - If the user's input (e.g. locale or region codes like en-US, es-419, zh-HK) does not map 1:1 to the page's options -- for example one source code maps to two page locales, two codes collapse into one page option, or a target option has no supplied value -- ASK the user how to map it before filling. Do not silently decide (e.g. don't put en-US text into an en-GB primary field, or fold es-419 into es-MX, without confirming).
+- Words like too / also / as well / "the same as" signal PROPAGATION: copy a value from one locale/item into another. Before writing, switch to the source locale/item and snapshot it to capture the real source value (snapshot text is often truncated, so read the full value, not the preview). Then go to the target and write it with \`type\`. Never assume the target already matches just because it looks populated -- verify by comparison. If the source is ambiguous (e.g. "the English text" but both en-US and en-GB exist), ask which one before copying.
 
 Efficiency:
 - When repeating the same action across many similar items (fill N fields, translate N elements), work through them in order and re-snapshot only when refs may have changed (e.g. after opening a menu or a re-render), not after every single item.
