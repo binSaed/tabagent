@@ -1846,7 +1846,6 @@ footer:has(.composer-wrap.busy) .composer-hint::after {
   margin-top: 4px;
 }
 
-.btn-validate,
 .btn-connect {
   padding: 9px 16px;
   border-radius: var(--radius-sm);
@@ -1855,25 +1854,6 @@ footer:has(.composer-wrap.busy) .composer-hint::after {
   cursor: pointer;
   border: 1px solid transparent;
   transition: background-color 0.15s, opacity 0.15s;
-}
-
-.btn-validate {
-  background: transparent;
-  color: var(--fg);
-  border-color: var(--border);
-}
-
-.btn-validate:hover {
-  background: var(--bg-hover);
-  border-color: var(--border-strong);
-}
-
-.btn-validate.checking {
-  opacity: 0.6;
-  pointer-events: none;
-}
-
-.btn-connect {
   background: var(--accent);
   color: #fff;
 }
@@ -1887,6 +1867,11 @@ footer:has(.composer-wrap.busy) .composer-hint::after {
   background: var(--border);
   color: var(--fg-muted);
   cursor: not-allowed;
+}
+
+.btn-connect.checking {
+  opacity: 0.6;
+  pointer-events: none;
 }
 
 .validation-msg {

@@ -874,19 +874,15 @@ function openConnectModal(providerId: string): void {
   msg.id = "validation-msg";
   wrap.appendChild(msg);
 
-  // Actions: Validate (checks the key live) + Connect (disabled until valid).
+  // Single action: Connect. It validates the key first, then requests host
+  // permission and persists the credentials on success.
   const actions = document.createElement("div");
   actions.className = "connect-actions";
-  const validateBtn = document.createElement("button");
-  validateBtn.type = "button";
-  validateBtn.className = "btn-validate";
-  validateBtn.textContent = "Validate";
   const connectBtn = document.createElement("button");
   connectBtn.type = "button";
   connectBtn.className = "btn-connect";
   connectBtn.textContent = "Connect";
-  connectBtn.disabled = true;
-  actions.append(validateBtn, connectBtn);
+  actions.append(connectBtn);
   wrap.appendChild(actions);
 
   // Docs link.
@@ -897,16 +893,13 @@ function openConnectModal(providerId: string): void {
     wrap.appendChild(link);
   }
 
-  validateBtn.addEventListener("click", () => void onValidate(connectTargetId, validateBtn, connectBtn, msg));
   connectBtn.addEventListener("click", () => void onConnectFromModal(connectTargetId, connectBtn, msg));
 
-  // Enter inside any auth field acts on the modal: Connect if the key already
-  // validated, otherwise Validate — so paste-key → Enter is the whole flow.
+  // Enter inside any auth field triggers Connect (validate-then-connect).
   wrap.addEventListener("keydown", (e) => {
     if (e.key !== "Enter" || !(e.target instanceof HTMLInputElement)) return;
     e.preventDefault();
-    if (!connectBtn.disabled) connectBtn.click();
-    else validateBtn.click();
+    connectBtn.click();
   });
 
   body.appendChild(wrap);
@@ -933,51 +926,38 @@ function readAuthFields(def: ProviderDefinition, prefix: "modal-auth-" | "auth-"
   return creds;
 }
 
-/** Live-validate a token without persisting it. */
-async function onValidate(
+/** Connect from the modal: validate first (no persistence on a bad key),
+ * then request host permission and persist + switch the provider. */
+async function onConnectFromModal(
   providerId: string,
-  validateBtn: HTMLButtonElement,
   connectBtn: HTMLButtonElement,
   msgEl: HTMLElement,
 ): Promise<void> {
   const def = state.providers.find((p) => p.id === providerId);
   if (!def) return;
   const credentials = readAuthFields(def, "modal-auth-");
-  validateBtn.classList.add("checking");
-  validateBtn.textContent = "Checking…";
+
+  // Step 1: validate the key live before requesting any permission or persisting.
+  connectBtn.classList.add("checking");
   connectBtn.disabled = true;
+  connectBtn.textContent = "Validating…";
   msgEl.className = "validation-msg";
   msgEl.innerHTML = `<span class="spinner"></span> Checking key…`;
   try {
     const res = await send<{ ok: boolean; error?: string }>({ kind: "validate_token", providerId, credentials });
-    if (res.ok) {
-      msgEl.className = "validation-msg ok";
-      msgEl.textContent = "✓ Token is valid.";
-      connectBtn.disabled = false;
-    } else {
+    if (!res.ok) {
       msgEl.className = "validation-msg err";
       msgEl.textContent = `✕ ${res.error ?? "Invalid token."}`;
-      connectBtn.disabled = true;
+      return;
     }
-  } catch (e) {
-    msgEl.className = "validation-msg err";
-    msgEl.textContent = `✕ ${(e as Error).message}`;
-    connectBtn.disabled = true;
-  } finally {
-    validateBtn.classList.remove("checking");
-    validateBtn.textContent = "Validate";
-  }
-}
+    msgEl.className = "validation-msg ok";
+    msgEl.textContent = "✓ Token is valid.";
 
-/** Connect from the modal: validate again (safety) then persist + switch. */
-async function onConnectFromModal(providerId: string, _connectBtn: HTMLButtonElement, msgEl: HTMLElement): Promise<void> {
-  const def = state.providers.find((p) => p.id === providerId);
-  if (!def) return;
-  const credentials = readAuthFields(def, "modal-auth-");
-  msgEl.className = "validation-msg";
-  msgEl.innerHTML = `<span class="spinner"></span> Connecting…`;
-  try {
-    // Request host permission FIRST (must stay in this user-gesture stack).
+    // Step 2: request host permission FIRST (must stay in this user-gesture stack),
+    // then persist + switch. connect_provider re-validates server-side as a safety net.
+    connectBtn.textContent = "Connecting…";
+    msgEl.className = "validation-msg";
+    msgEl.innerHTML = `<span class="spinner"></span> Connecting…`;
     const baseURL = def.id === "custom" ? credentials.baseURL || def.baseURL : def.baseURL;
     await ensureHostPermission(baseURL);
     const resp = await send<{ models: Model[]; selectedModelId: string }>({
@@ -998,6 +978,10 @@ async function onConnectFromModal(providerId: string, _connectBtn: HTMLButtonEle
   } catch (e) {
     msgEl.className = "validation-msg err";
     msgEl.textContent = `✕ ${(e as Error).message}`;
+  } finally {
+    connectBtn.classList.remove("checking");
+    connectBtn.disabled = false;
+    connectBtn.textContent = "Connect";
   }
 }
 
