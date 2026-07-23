@@ -96,6 +96,11 @@ const WALKER_JS = String.raw`
     return false;
   }
 
+  // Short strings that are obviously not a field label (they belong to generic
+  // helper/icon elements sitting next to a field). Used by the adjacent-text
+  // heuristic below so we don't mislabel a textbox as "More information".
+  var NON_LABEL = /^(more information|\?|required|optional|\*|close|×|x)$/i;
+
   function nameOf(el) {
     var aria = el.getAttribute && el.getAttribute("aria-label");
     if (aria && aria.trim()) return aria.trim().slice(0, 120);
@@ -108,9 +113,71 @@ const WALKER_JS = String.raw`
     if (ph && ph.trim()) return ph.trim().slice(0, 120);
     if (el.title && el.title.trim()) return el.title.trim().slice(0, 120);
     var tag = el.tagName.toLowerCase();
+    var isField = tag === "input" || tag === "textarea" || tag === "select" || el.isContentEditable;
+
+    // Form controls frequently have a real LABEL element wired up via the
+    // "for" attribute or by wrapping the control. .labels exposes those.
+    if (isField && el.labels && el.labels.length) {
+      for (var i = 0; i < el.labels.length; i++) {
+        var lt = (el.labels[i].textContent || "").replace(/\s+/g, " ").trim();
+        if (lt && !NON_LABEL.test(lt)) return lt.slice(0, 120);
+      }
+    }
+
+    // Adjacent-text heuristic: many apps (e.g. App Store Connect) put a plain
+    // text label as a sibling or parent-child text node next to an otherwise
+    // unlabeled control. Scan the nearest preceding siblings (then the parent's
+    // leading children) for a short text node that looks like a label. This is
+    // what lets the model see "What's New" / "Promotional Text" instead of
+    // guessing by field order.
+    if (isField) {
+      var adj = adjacentLabel(el);
+      if (adj) return adj;
+    }
+
     if (tag === "input" && el.type) return el.type + " field";
     var txt = (el.innerText || el.textContent || "").replace(/\s+/g, " ").trim();
     if (txt) return txt.slice(0, 120);
+    return "";
+  }
+
+  // Find a short text label near a form control that has no LABEL element.
+  // Looks at up to 3 previous siblings, then up to 3 leading children of the
+  // parent, returning the first plausible label text. Returns "" if none.
+  function adjacentLabel(el) {
+    function clean(node) {
+      if (!node) return "";
+      // text node
+      if (node.nodeType === 3) return (node.nodeValue || "").replace(/\s+/g, " ").trim();
+      // element node -- use its own direct text, not descendants, so we don't
+      // grab a whole section's worth of content.
+      if (node.nodeType === 1) {
+        var direct = "";
+        for (var i = 0; i < node.childNodes.length; i++) {
+          var c = node.childNodes[i];
+          if (c.nodeType === 3) direct += c.nodeValue;
+        }
+        return direct.replace(/\s+/g, " ").trim();
+      }
+      return "";
+    }
+    var sib = el.previousSibling;
+    var seen = 0;
+    while (sib && seen < 3) {
+      var t = clean(sib);
+      if (t && t.length <= 120 && !NON_LABEL.test(t)) return t.slice(0, 120);
+      sib = sib.previousSibling;
+      seen++;
+    }
+    // Fall back to the parent's leading text children.
+    var p = el.parentElement;
+    if (p) {
+      var kids = p.childNodes;
+      for (var j = 0; j < kids.length && j < 3; j++) {
+        var pt = clean(kids[j]);
+        if (pt && pt.length <= 120 && !NON_LABEL.test(pt) && !el.contains(kids[j])) return pt.slice(0, 120);
+      }
+    }
     return "";
   }
 
@@ -295,8 +362,31 @@ class ClickTool implements AnnotatedTool {
 
     if (!ref) return err(call, "missing required parameter: ref");
 
-    const box = await resolveCenter(ctx, ref);
+    // Resolve target center, then VERIFY the target is actually under that
+    // point before dispatching. In virtualized menus/overlays the element's
+    // rect can be read correctly but a DIFFERENT element renders at that point
+    // by the time we click (click-coordinate desync), so the click silently
+    // hits the wrong item. If the guard fails, settle (wait for repaint),
+    // re-resolve, and re-check ONCE. If it still fails, surface a precise
+    // error so the caller re-snapshots rather than mis-selecting.
+    let box = await resolveCenter(ctx, ref);
     if ("error" in box) return err(call, box.error);
+    let hits = await pointHitsTarget(ctx, ref, box.cx, box.cy);
+    if (!hits) {
+      await waitForRepaint(ctx);
+      box = await resolveCenter(ctx, ref);
+      if ("error" in box) return err(call, box.error);
+      hits = await pointHitsTarget(ctx, ref, box.cx, box.cy);
+    }
+    if (!hits) {
+      return err(
+        call,
+        `ref "${ref}" is not under its resolved click point (the page likely ` +
+          `re-rendered after scroll, e.g. a virtualized menu). The click would hit ` +
+          `the wrong element, so it was aborted. Call snapshot() to get fresh refs, ` +
+          `then retry.`,
+      );
+    }
 
     try {
       // Move the mouse to the target first so :hover/focus-on-mousedown apply.
@@ -337,7 +427,7 @@ class ClickTool implements AnnotatedTool {
 const TYPE_INFO = {
   name: "type",
   description:
-    "Focus the element identified by snapshot `ref` and type `text` into it. Clears the field first by default (clearFirst: true).",
+    "Focus the element identified by snapshot `ref` and type `text` into it. Clears the field first by default (clearFirst: true). Multi-line text is supported: embed '\\n' for line/paragraph breaks -- each is translated to a real Enter press, so <textarea>/contenteditable fields keep their line breaks. For static page content (e.g. translation), use set_text instead.",
   parameters: {
     type: "object",
     properties: {
@@ -368,9 +458,39 @@ class TypeTool implements AnnotatedTool {
     if (!focused.ok) return err(call, focused.error);
 
     try {
-      for (const ch of text) {
-        await ctx.cdp("Input.dispatchKeyEvent", { type: "char", text: ch });
+      // Enter multi-line text correctly. Two prior failure modes this fixes:
+      //  (a) Sending '\n' as a "char" key event does NOT insert a newline in a
+      //      <textarea>/contenteditable -- it gets dropped, so multi-paragraph
+      //      text collapsed into one line (e.g. "experience.Happy learning!").
+      //  (b) Input.insertText cannot represent a newline either.
+      // So we split the text on newlines: emit each run via insertText (which
+      // reliably lands in inputs/textareas/editables), and translate each '\n'
+      // into a real Enter key press. Falls back to per-char "char" events only
+      // if insertText is rejected by the target.
+      const runs = text.split("\n");
+      let usedInsertText = false;
+      for (let i = 0; i < runs.length; i++) {
+        if (i > 0) {
+          await ctx.cdp("Input.dispatchKeyEvent", { type: "rawKeyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
+          await ctx.cdp("Input.dispatchKeyEvent", { type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
+        }
+        const run = runs[i];
+        if (run.length === 0) continue;
+        try {
+          await ctx.cdp("Input.insertText", { text: run });
+          usedInsertText = true;
+        } catch {
+          // Some targets (e.g. plain contenteditable) reject insertText;
+          // fall back to char-by-char dispatch for this run.
+          for (const ch of run) {
+            await ctx.cdp("Input.dispatchKeyEvent", { type: "char", text: ch });
+          }
+        }
       }
+      // If the very first insertText failed and we never succeeded, we may have
+      // silently emitted nothing -- the per-char fallback inside the loop
+      // already covered it, so no extra action is needed here.
+      void usedInsertText;
       if (submit) {
         await ctx.cdp("Input.dispatchKeyEvent", { type: "rawKeyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
         await ctx.cdp("Input.dispatchKeyEvent", { type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
@@ -875,6 +995,68 @@ async function resolveCenter(
     return { cx: val.cx, cy: val.cy };
   } catch (e) {
     return { error: `could not resolve ref "${ref}": ${(e as Error).message}` };
+  }
+}
+
+/**
+ * Verify that the element identified by `ref` is actually under the given
+ * viewport point (cx, cy). This catches the "click-coordinate desync" failure
+ * mode: in virtualized menus/overlays (e.g. App Store Connect's language
+ * dropdown), an element can be scrolled into view and its rect read, but the
+ * DOM under that point at click time is a DIFFERENT element (e.g. the row that
+ * happens to render at that fixed Y), so the click lands on the wrong target.
+ *
+ * Match policy: the element under the point (or its ancestor chain, or its
+ * descendant subtree) must contain the target element. Returns true on match.
+ */
+async function pointHitsTarget(
+  ctx: ToolContext,
+  ref: string,
+  cx: number,
+  cy: number,
+): Promise<boolean> {
+  const js = String.raw`
+(function (ref, x, y) {
+  var w = window.__agentRefMap && window.__agentRefMap[ref];
+  if (!w) return false;
+  var el = w.deref();
+  if (!el || !document.contains(el)) return false;
+  var hit = document.elementFromPoint(x, y);
+  if (!hit) return false;
+  if (hit === el) return true;
+  // The clicked point may land on a descendant/child (icon, span) of the target.
+  if (el.contains(hit)) return true;
+  // Or the target may be nested inside the element occupying the point (wrapper).
+  if (hit.contains(el)) return true;
+  return false;
+})`;
+  try {
+    const res = await ctx.cdp<{ result: { value: boolean } }>("Runtime.evaluate", {
+      expression: `${js}(${JSON.stringify(ref)}, ${JSON.stringify(cx)}, ${JSON.stringify(cy)})`,
+      returnByValue: true,
+    });
+    return Boolean(res?.result?.value);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Wait one animation frame + a short macrotask delay so async overlays
+ * (virtualized lists, portals) can finish rendering after a scroll. Returns
+ * via CDP by evaluating a promise on the page; capped at ~400ms.
+ */
+async function waitForRepaint(ctx: ToolContext): Promise<void> {
+  const js = String.raw`
+new Promise(function (resolve) {
+  requestAnimationFrame(function () {
+    requestAnimationFrame(function () { setTimeout(resolve, 60); });
+  });
+})`;
+  try {
+    await ctx.cdp("Runtime.evaluate", { expression: js, awaitPromise: true, returnByValue: true });
+  } catch {
+    // Best-effort; ignore failures so the click still proceeds.
   }
 }
 
